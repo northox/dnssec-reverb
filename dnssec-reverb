@@ -9,9 +9,9 @@
 PROG=`basename $0`
 
 DIR=`dirname $0`
-CONFIGFILE="$DIR/dnssec-reverb.conf"
 
 MASTERDIR="/var/nsd/zones/master"
+CONFIGFILE="$MASTERDIR/dnssec-reverb.conf"
 
 keygen="/usr/local/bin/ldns-keygen"
 signzone="/usr/local/bin/ldns-signzone"
@@ -21,9 +21,6 @@ KSK_PARAM="-a ECDSAP256SHA256 -k"
 ZSK_PARAM="-a ECDSAP256SHA256 "
 SIGN_PARAM="-n"
 DS_PARAM="-2"
-PRESERVE_REMOVED_KEY="YES"
-
-FATAL_MAIL=""
 
 NOW=`date +%Y%m%d%H%M%S`
 
@@ -52,7 +49,7 @@ LOCKF=""
 HEAD_ZSKNAME="zsk-"
 HEAD_KSKNAME="ksk-"
 HEAD_ZSSNAME="zss-"
-HEAD_ZSRNAME="zsr-"            # Removed ZSK
+HEAD_ZSRNAME="zsr-" # Removed ZSK
 HEAD_KSSNAME="kss-"
 
 NEED_RELOAD=0
@@ -95,12 +92,7 @@ Fatal()
 	if [ "$LOCKF" != "" ]; then
 		rm $LOCKF
 	fi
-
-	if [ "$FATAL_MAIL" = "" ]; then
-		echo $1
-		exit 1
-	fi
-	echo $1 | Mail -s "$1" $FATAL_MAIL
+	echo $1
 	exit 1
 }
 
@@ -110,8 +102,8 @@ _usage()
 		rm $LOCKF
 	fi
 	cat <<EOF
-usage: $PROG [-s] keygen <zone>
-       $PROG [-s] rmkeys <zone>
+usage: $PROG keygen <zone>
+       $PROG rmkeys <zone>
        $PROG [-s] ksk-add <zone>
        $PROG [-s] ksk-roll <zone>
        $PROG [-s] zsk-add <zone>
@@ -168,31 +160,6 @@ sign()
 	$signzone $_SIGN_PARAM -o $ZONE -f "$ZONEFILE.signed" $ZONEFILE.tmp $KEYDIR/$ZSK $KEYDIR/$KSK $KSS
 	echo "signzone returns $?"
 	rm $ZONEFILE.tmp
-	eval _TWOFACE=\${TWOFACE_$ZONE_:-}
-	if [ "$_TWOFACE" != "" ]; then
-		_check_file $_TWOFACE
-		$ZONE_PREPROCESS $_TWOFACE > $ZONEFILE.tmp
-		cat $KSK_FILE $ZSK_FILE | while read keyfile
-		do
-			_check_file "$KEYDIR/$keyfile.key"
-			cat "$KEYDIR/$keyfile.key" >> $ZONEFILE.tmp
-		done
-		for i in $KSK_S_FILE $ZSK_S_FILE $ZSK_R_FILE
-		do
-			if [ -f $i ]; then
-				keyfile=`head -1 $i`
-				_check_file "$KEYDIR/$keyfile.key"
-				cat "$KEYDIR/$keyfile.key" >> $ZONEFILE.tmp
-			fi
-		done
-		cmdname=`basename $signzone`
-		if [ "$KSS" != "" ]; then
-			KSS="$KEYDIR/$KSS"
-		fi
-		$signzone $_SIGN_PARAM -o $ZONE -f "$_TWOFACE.signed" $ONEFILE.tmp $KEYDIR/$ZSK $KEYDIR/$KSK $KSS
-		echo "signzone returns $?"
-		rm $ZONEFILE.tmp
-	fi
 	NEED_RELOAD=1
 }
 
@@ -277,7 +244,7 @@ CMD="$1"
 shift
 
 if [ "$1" = "" ]; then
-	Fatal "A zone mut be provided."
+	Fatal "A zone must be provided."
 	_usage
 	exit 1
 else
@@ -364,9 +331,6 @@ do
 		OLDZSK="$ZSK"
 		ZSK="$ZSS"
 		ZSS=""
-		if [ "$PRESERVE_REMOVED_KEY" = "NO" ]; then
-			remove_previouskey
-		fi
 		echo "$ZONE 's ZSK: valid -> previous: $OLDZSK"
 		echo "$ZONE 's ZSK: next -> current: $ZSK"
 		status

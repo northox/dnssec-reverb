@@ -5,118 +5,115 @@ Shell script based DNSSEC key management tool - easy to audit
 TODO
 
 ## Requirements
-TODO
+- ldns from NLnet labs
+- standard unix tools such as sed
 
-## Installation and Configuration:
-*Work In Progress*
+## Installation
+1. Copy dnssec-reverb into some directory.
 
-   1. Copy dnsseczonetool into some directory.
-        Example: copy it to /etc/namedb/master.
+    `$ sudo cp dnssec-reverb /var/nsd/zones/master`
 
-   2. Create dnsseczonetool.conf into the same directory of dnsseczonetool.
-      if you want to change the default values.
-        Example: touch /etc/namedb/master/dnsseczonetool.conf
+2. Create dnssec-reverb.conf into the same directory of dnssec-reverb.
 
-   3. Prepare traditional zone files. File name should be equal to zone name.
-        Example: /etc/namedb/master/example.com
+    if you want to change the default values.
+    `touch /var/nsd/zones/master/dnssec-reverb.conf`
 
-   4. Generate first key.
-        Example: /etc/namedb/master/dnsseczonetool keygen example.com
+3. Prepare traditional zone files. File name should be equal to zone name.
 
-   5. Sign zone
-        Example: /etc/namedb/master/dnsseczonetool sign example.com
+    `/var/nsd/zones/master/example.com`
 
-   6. Edit named.conf/nsd.conf to load signed zone file
-        Example: zone "example.com" {
-                        type master;
-                        file "/etc/namedb/master/exapmle.com.signed";
-                 }
+4. Generate first key and sign zone.
 
-   7. Periodic zone signing: Add one entry to your crontab
-        Example: "0 7 * * * /etc/namedb/dnsseczonetool sign exapmle.com"
+    `./dnssec-reverb keygen example.com`
+    `./dnssec-reverb sign example.com`
 
-   dnsseczonetool.conf:
-     FATAL_MAIL: Send an email to $FATAL_MAIL when fatal error occurs.
-     MASTERDIR: Zone file directory
-                Default: MASTERDIR="/etc/namedb/master"
-     KSK_PARAM: Default dnssec-keygen's options for KSK
-                Default: KSK_PARAM_DEFAULT="-n zone -a RSASHA1 -b 2048 -f ksk"
-     KSK_PARAM_$zone: dnssec-keygen's options for zone's KSK
-                Default: KSK_PARAM
-     ZSK_PARAM: Default dnssec-keygen's options for ZSK
-                Default: ZSK_PARAM_DEFAULT="-n zone -a RSASHA1 -b 1024"
-     ZSK_PARAM_$zone: dnssec-keygen's options for zone's ZSK
-                Default: ZSK_PARAM
-     SIGN_PARAM: Default dnssec-signzone options
-                Default: SIGN_PARAM_DEFAULT="-N unixtime"
-     SIGN_PARAM_$zone: dnssec-signzone options for zone
-                Default: SIGN_PARAM
-     DS_PARAM:  Default dsfromkey options for zone
-                Default: SIGN_PARAM_DEFAULT="-2"
-     DS_PARAM_$zone: dsfromkey options for zone
-                Default: SIGN_PARAM
-     keygen:    dnssec-keygen path
-                Default: keygen="/usr/local/sbin/dnssec-keygen"
-     signzone:  dnssec-signzone path
-                Default: signzone="/usr/local/sbin/dnssec-signzone"
-     dsfromkey: dnssec-dsfromkey path
-                Default: dsfromkey="/usr/local/sbin/dnssec-dsfromkey"
-     rndc:      rndc path
-                Default: rndc="/usr/local/sbin/rndc"
-     CONFIGDIR: directory where dnsseczonetool uses.
-                Default: CONFIGDIR="$MASTERDIR/config"
-     KEYDIR:    directory where dnsseczonetool puts zone keys.
-                Default: KEYDIR="$MASTERDIR/config/keydir"
-     KEYBACKUPDIR: directory where dnsseczonetool puts old keys.
-                Default: KEYBACKUPDIR="$MASTERDIR/config/backup"
-     RNDC_OPTION: rndc options or OFF
-                Default: RNDC_OPTION="-k $MASTERDIR/rndc.key"
-     ZONE_PREPROCESS: zone preprocess command
-                Default: cat
-     RELOADALL_COMMAND:  reload all command
-                Default: none
-     PRESERVE_REMOVED_KEY: NO|YES
-                Default: YES
-     TWOFACE_$zone: The zone has two face zone file for split DNS
-                  The value is another zone file name
-                  When signing, both zone files are signed
-                Default: none
+5. Edit named.conf/nsd.conf to load signed zone file
 
-     caution: $zone is zone name
-              whose '.' and '-' characters are replaced by '_'.
-		 All zone name must be lowercase.
+    ```
+    zone "example.com" {
+        type master;
+        file "/var/nsd/zones/master/example.com.signed";
+    }
+    ```
+
+## Configuration
+
+dnssec-reverb.conf:
+
+- MASTERDIR: Zone file directory | Default: MASTERDIR="/etc/namedb/master"
+- KSK_PARAM: Default dnssec-keygen's options for KSK | Default: KSK_PARAM_DEFAULT="-a ECDSAP256SHA256 -k"
+- KSK_PARAM_$zone: dnssec-keygen's options for zone's KSK | Default: KSK_PARAM
+- ZSK_PARAM: Default dnssec-keygen's options for ZSK | Default: ZSK_PARAM_DEFAULT="-a ECDSAP256SHA256"
+- ZSK_PARAM_$zone: dnssec-keygen's options for zone's ZSK | Default: ZSK_PARAM
+- SIGN_PARAM: Default dnssec-signzone options | Default: SIGN_PARAM_DEFAULT="-n"
+- SIGN_PARAM_$zone: dnssec-signzone options for zone | Default: SIGN_PARAM
+- DS_PARAM:  Default dsfromkey options for zone | Default: SIGN_PARAM_DEFAULT="-2"
+- DS_PARAM_$zone: dsfromkey options for zone | Default: SIGN_PARAM
+
+- keygen: dnssec-keygen path | Default: keygen="/usr/local/bin/ldns-keygen"
+- signzone: dnssec-signzone path | Default: signzone="/usr/local/bin/ldns-signzone"
+- dsfromkey: dnssec-dsfromkey path | Default: dsfromkey="/usr/local/bin/ldns-key2ds-n"
+
+- CONFIGDIR: directory where dnssec-reverb store it's state/data | Default: CONFIGDIR="$MASTERDIR/dnsec-reverb-db"
+- **TODO** RELOADALL_COMMAND: reload all command | Default: none
+
+Caution: All zone name must be lowercase. $zone is zone name whose '.' and '-' characters are replaced by '_'.
 
 ## Usage
-   1. Generate KSK and ZSK
-       dnsseczonetool keygen zone(s)
 
-   2. Sign zone using keys generated in step 1
-       dnsseczonetool sign zone(s)
+usage: dnssec-reverb keygen <zone>
+       dnssec-reverb rmkeys <zone>
 
-   3. Add next ZSK for ZSK rollover (generate new ZSK and sign with old key)
-       dnsseczonetool add-next-zsk zone(s)
+       dnssec-reverb [-s] ksk-add <zone>
+       dnssec-reverb [-s] ksk-roll <zone>
 
-   4. ZSK Rollover (Change current ZSK as unused previous ZSK,
-                    and sign new ZSK generated by step.3)
-       dnsseczonetool zsk-rollover zone(s)
+       dnssec-reverb [-s] zsk-add <zone>
+       dnssec-reverb [-s] zsk-roll <zone>
+       dnssec-reverb [-s] zsk-rmold <zone>
 
-   4'. ZSK Rollover 2 (Change current ZSK as unused previous ZSK,
-                              stand-by ZSK as current ZSK,
-			Generate new ZSK as a stand-by ZSK,
-                       and sign the zone by new ZSK.)
-       dnsseczonetool zskroll zone(s)
+       dnssec-reverb sign <zone>
+       dnssec-reverb status <zone>
 
-   5. Add next KSK for KSK rollover (generate new KSK and sign with both keys)
-       dnsseczonetool add-next-ksk zone(s)
+### Initial setup - assuming your zone has no DNSSEC keys published
+1. Generate KSK and ZSK 
 
-   6. KSK Rollover (Remove old KSK and sign new KSK generated by step.5)
-       dnsseczonetool ksk-rollover zone(s)
+    `dnssec-reverb keygen example.org`
 
-   7. Zone key status
-       dnsseczonetool status zone(s)
+2. Retrieve your fresh KSK and setup the DS at your registrar
 
-   8. Zone key status-dnskey (Show KSK DNSKEY for DLV registration)
-       dnsseczonetool status-dnskey zone(s)
+    `dnssec-reverb status example.org`
+    Use the information displayed and use it with your DNSSEC compliant domain registrar. 
+
+3. Sign zone using keys generated in step #1 
+
+    `dnssec-reverb sign example.org`
+
+## Rollover of the KSK
+TODO
+
+## Rollover of the ZSK
+
+### Manual
+1. Add next ZSK for future ZSK rollover (publish the upcomming ZSK and sign with active key) 
+
+    `dnssec-reverb --sign zsk-add example.org`
+
+2. ZSK rollover (set the published but latent ZSK created at step #3 as the active ZSK) 
+
+    `dnssec-reverb -s zsk-roll example.org`
+
+3. ZSK remove old (remove the old ZSK from your records)
+
+    `dnssec-reverb zsk-roll example.org`
+    `dnssec-reverb sign example.org`
+
+### Automated
+Set something similar in your crontab. This will roll the ZSK at a 4 months interval by adding the new ZSK one month ahead before publishing it and removing the old one one month later.
+```
+0       6       1       feb,jun,oct *   dnssec-reverb -s zsk-add example.org
+0       6       1       mar,jul,nov *   dnssec-reverb -s zsk-roll example.org
+0       6       1       apr,aug,dec *   dnssec-reverb -s zsk-rmold example.org
+```
 
 ## License
 Simplified BSD
@@ -129,4 +126,3 @@ This code is based on @kfujiwara [work's](https://github.com/kfujiwara/dnsseczon
 
 # Author(s)
 Danny Fullerton - Mantor Organization
-@kfujiwara originally
