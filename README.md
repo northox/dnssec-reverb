@@ -1,11 +1,16 @@
 # dnssec-reverb
-Shell script based DNSSEC key management tool - easy to audit
+Shell script based DNSSEC key management tool
+
+I was looking for something that would take care of the rotation of my DNSSEC keys that wouldn't require many dependencies, was simple to manage and that I could actually trust - easily auditable. I found an unmaintained script called dnsseczonetool from @kfujiwara and refactor it to fit my needs. It is used and tested on OpenBSD but should work pretty much anywhere with the proper paths.
+
+Reverb is straightforward and couldn't be more trustable/easy to audit. Enjoy!
 
 ## Features
 TODO
 
 ## Requirements
-* ldns from NLnet labs
+* nsd (support for bind should be easy)
+* ldns from NLnet labs (support for bind's DNSSEC tools should be easy)
 * standard unix tools such as sed
 
 ## Installation
@@ -13,20 +18,15 @@ TODO
 
     `$ sudo cp dnssec-reverb /var/nsd/zones/master`
 
-2. Create dnssec-reverb.conf into the same directory of dnssec-reverb.
+2. Create `dnssec-reverb.conf` in the same directory if you need to override some config - see below.
 
-    `touch /var/nsd/zones/master/dnssec-reverb.conf`
+    `echo ZSK_PARAM_example.org="-a RSASHA1-NSEC3-SHA1" >> /var/nsd/zones/master/dnssec-reverb.conf`
 
-3. Prepare traditional zone files. File name should be equal to zone name.
+3. Prepare traditional zone files. The file name should be equal to the zone name.
 
-    `/var/nsd/zones/master/example.com`
-
-4. Generate first key and sign zone.
-
-    `./dnssec-reverb keygen example.com`  
-    `./dnssec-reverb sign example.com`
-
-5. Edit named.conf/nsd.conf to load signed zone file
+    `vi /var/nsd/zones/master/example.com`
+    
+4. Edit nsd.conf to load the signed zone file:
 
     ```
     zone "example.com" {
@@ -35,54 +35,61 @@ TODO
     }
     ```
 
+5. Generate first key and sign zone:
+
+    ```
+    dnssec-reverb keygen example.com  
+    dnssec-reverb sign example.com
+    ```
+
 ## Configuration
-dnssec-reverb.conf:
+To override the default configuration (as describe below), simply create a `dnssec-reverb.conf` file at $MASTERDIR location.
 
-* MASTERDIR: Zone file directory | Default: MASTERDIR="/var/nsd/zones/master"
-* KSK_PARAM: Default dnssec-keygen's options for KSK | Default: KSK_PARAM_DEFAULT="-a ECDSAP256SHA256 -k"
-* KSK_PARAM_$zone: dnssec-keygen's options for zone's KSK | Default: KSK_PARAM
-* ZSK_PARAM: Default dnssec-keygen's options for ZSK | Default: ZSK_PARAM_DEFAULT="-a ECDSAP256SHA256"
-* ZSK_PARAM_$zone: dnssec-keygen's options for zone's ZSK | Default: ZSK_PARAM
-* SIGN_PARAM: Default dnssec-signzone options | Default: SIGN_PARAM_DEFAULT="-n"
-* SIGN_PARAM_$zone: dnssec-signzone options for zone | Default: SIGN_PARAM
-* DS_PARAM:  Default dsfromkey options for zone | Default: SIGN_PARAM_DEFAULT="-2"
-* DS_PARAM_$zone: dsfromkey options for zone | Default: SIGN_PARAM
+Path:
+* MASTERDIR: Zone file directory (/var/nsd/zones/master)
+* CONFIGDIR: directory used to store state and data ($MASTERDIR/dnssec-reverb-db)
+* keygen: ldns-keygen path (/usr/local/bin/ldns-keygen)
+* signzone: ldns-signzone path (/usr/local/bin/ldns-signzone)
+* dsfromkey: ldns-key2ds path (/usr/local/bin/ldns-key2ds-n)
+* checkzone: nsd-checkzone path (/usr/sbin/nsd-checkzone)
+* control: nsd-control path (/usr/sbin/nsd-control)
+* RELOAD_COMMAND: reload command ($checkzone \$ZONE \$ZONE || exit 1; $control reload && $control notify)
 
-* keygen: dnssec-keygen path | Default: keygen="/usr/local/bin/ldns-keygen"
-* signzone: dnssec-signzone path | Default: signzone="/usr/local/bin/ldns-signzone"
-* dsfromkey: dnssec-dsfromkey path | Default: dsfromkey="/usr/local/bin/ldns-key2ds-n"
+Params:
+* KSK_PARAM: keygen's options for KSK (-a ECDSAP256SHA256 -k)
+* ZSK_PARAM: keygen's options for ZSK (-a ECDSAP256SHA256)
+* SIGN_PARAM: signzone options (-n)
+* DS_PARAM: dsfromkey options (-2)
 
-* CONFIGDIR: directory where dnssec-reverb store it's state/data | Default: CONFIGDIR="$MASTERDIR/dnssec-reverb-db"
-* **TODO** RELOADALL_COMMAND: reload all command | Default: none
-
-Caution: All zone name must be lowercase. $zone is zone name whose '.' and '-' characters are replaced by '_'.
+The previous configuration set can be overridden by zone by simply adding "\_$zone" at the end of the variable. For example: ZSK_PARAM_example.org="-a RSASHA1-NSEC3-SHA1" to change the cipher for example.org's keys only. All zone name must be lowercase. Zone whose name contains '.' and '-' characters are replaced by '_'.
 
 ## Usage
-    $ dnssec-reverb
-    usage: dnssec-reverb keygen <zone>
-           dnssec-reverb rmkeys <zone>
+```
+$ dnssec-reverb
+usage: dnssec-reverb keygen <zone>
+       dnssec-reverb rmkeys <zone>
 
-           dnssec-reverb [-s] ksk-add <zone>
-           dnssec-reverb [-s] ksk-roll <zone>
+       dnssec-reverb [-s] ksk-add <zone>
+       dnssec-reverb [-s] ksk-roll <zone>
 
-           dnssec-reverb [-s] zsk-add <zone>
-           dnssec-reverb [-s] zsk-roll <zone>
-           dnssec-reverb [-s] zsk-rmold <zone>
+       dnssec-reverb [-s] zsk-add <zone>
+       dnssec-reverb [-s] zsk-roll <zone>
+       dnssec-reverb [-s] zsk-rmold <zone>
 
-           dnssec-reverb sign <zone>
-           dnssec-reverb status <zone>
+       dnssec-reverb sign <zone>
+       dnssec-reverb status <zone>
+```
 
 ### Initial setup - assuming your zone has no DNSSEC keys published
-1. Generate KSK and ZSK 
+1. Generate KSK and ZSK:
 
     `dnssec-reverb keygen example.org`
 
-2. Retrieve your fresh KSK and setup the DS at your registrar
+2. Retrieve your fresh KSK's fingerprint and setup the DS at your registrar:
 
-    `dnssec-reverb status example.org`
-    Use the information displayed and setup the Ds record with your DNSSEC compliant domain registrar. 
+    `dnssec-reverb status example.org`  
 
-3. Sign zone using keys generated in step #1 
+3. Sign zone using keys generated in step #1:
 
     `dnssec-reverb sign example.org`
 
@@ -120,7 +127,8 @@ Simplified BSD
 https://github.com/northox/dnssec-reverb
 
 ## Acknowledgements
-This code is based on @kfujiwara [work's](https://github.com/kfujiwara/dnsseczonetool).
+This code is heavily based on @kfujiwara [work's](https://github.com/kfujiwara/dnsseczonetool).
 
 # Author(s)
-Danny Fullerton - Mantor Organization
+Danny Fullerton - Mantor Organization  
+@kfujiwara

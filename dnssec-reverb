@@ -16,6 +16,10 @@ CONFIGFILE="$MASTERDIR/dnssec-reverb.conf"
 keygen="/usr/local/bin/ldns-keygen"
 signzone="/usr/local/bin/ldns-signzone"
 dsfromkey="/usr/local/bin/ldns-key2ds -n"
+checkzone="/usr/sbin/nsd-checkzone"
+control="/usr/sbin/nsd-control"
+
+RELOAD_COMMAND="$checkzone \$ZONE \$ZONE || exit 1; $control reload && $control notify"
 
 KSK_PARAM="-a ECDSAP256SHA256 -k"
 ZSK_PARAM="-a ECDSAP256SHA256 "
@@ -51,8 +55,6 @@ HEAD_KSKNAME="ksk-"
 HEAD_ZSSNAME="zss-"
 HEAD_ZSRNAME="zsr-" # Removed ZSK
 HEAD_KSSNAME="kss-"
-
-NEED_RELOAD=0
 
 # setup
 if [ ! -d $CONFIGDIR ]; then
@@ -160,7 +162,7 @@ sign()
 	$signzone $_SIGN_PARAM -o $ZONE -f "$ZONEFILE.signed" $ZONEFILE.tmp $KEYDIR/$ZSK $KEYDIR/$KSK $KSS
 	echo "signzone returns $?"
 	rm $ZONEFILE.tmp
-	NEED_RELOAD=1
+	eval $RELOAD_COMMAND
 }
 
 status()
@@ -356,10 +358,6 @@ done
 
 if [ "$SIGN_OPT" = 1 ]; then
 	sign
-fi
-
-if [ "$NEED_RELOAD" = 1 -a "$RELOADALL_COMMAND" != "" ]; then
-	eval $RELOADALL_COMMAND
 fi
 
 exit 0
