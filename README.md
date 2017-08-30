@@ -41,6 +41,8 @@ TODO
     dnssec-reverb keygen example.com  
     dnssec-reverb sign example.com
     ```
+    
+You can debug your DNSSEC chain using this tool: http://dnsviz.net/d/mantor.org/dnssec/
 
 ## Configuration
 To override the default configuration (as describe below), simply create a `dnssec-reverb.conf` file at $MASTERDIR location.
