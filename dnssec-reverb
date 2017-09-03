@@ -3,53 +3,54 @@
 #
 # @home: https://github.com/northox/dnssec-reverb
 # @license: Simplified BSD
-# Copyright (c) 2009-2013 Kazunori Fujiwara <fujiwara@wide.ad.jp>.
 # Copyright (c) 2017 Danny Fullerton <danny@mantor.org>. 
+# Copyright (c) 2009-2013 Kazunori Fujiwara <fujiwara@wide.ad.jp>.
 
 PROG=`basename $0`
-
 DIR=`dirname $0`
-
-MASTERDIR="/var/nsd/zones/master"
-CONFIGFILE="$MASTERDIR/dnssec-reverb.conf"
-
 keygen="/usr/local/bin/ldns-keygen"
 signzone="/usr/local/bin/ldns-signzone"
-dsfromkey="/usr/local/bin/ldns-key2ds -n"
+key2ds="/usr/local/bin/ldns-key2ds"
 checkzone="/usr/sbin/nsd-checkzone"
 control="/usr/sbin/nsd-control"
-
 RELOAD_COMMAND="$checkzone \$ZONE \$ZONE || exit 1; $control reload && $control notify"
-
 KSK_PARAM="-a ECDSAP256SHA256 -k"
 ZSK_PARAM="-a ECDSAP256SHA256 "
 SIGN_PARAM="-n"
-DS_PARAM="-2"
+DS_PARAM="-n -2"
+SERIAL_TAG="_SERIAL_"
 
 NOW=`date +%Y%m%d%H%M%S`
-
-if [ -s $CONFIGFILE ]; then
-	. $CONFIGFILE
-fi
-
-if [ "$1" = "" -a "$DEFAULT_ACTION" != "" ]; then
-	echo "Doing $DEFAULT_ACTION"
-	set $DEFAULT_ACTION
-	echo $1 $2 $3
-fi
-
-if [ "$CONFIGDIR" = "" ]; then
-	CONFIGDIR="$MASTERDIR/dnssec-reverb-db"
-fi
-if [ "$KEYDIR" = "" ]; then
-	KEYDIR="$CONFIGDIR/keydir"
-fi
-if [ "$KEYBACKUPDIR" = "" ]; then
-	KEYBACKUPDIR="$CONFIGDIR/backup"
-fi
-
 LOCKF=""
 
+Fatal()
+{
+	[ "$LOCKF" != "" ] && rm $LOCKF
+	echo $PROG: $1 >&2
+	exit 1
+}
+
+# load conf
+CONF="dnssec-reverb.conf"
+if [ -r "$DNSSEC_REVERB_CONF/$CONF" ]; then
+	CONF="$DNSSEC_REVERB_CONF/$CONF"
+elif [ -r "$DIR/$CONF" ]; then
+	CONF="${DIR}/$CONF"
+elif [ -r "/etc/$CONF" ]; then
+	CONF="/etc/$CONF"
+elif [ -r "/usr/local/etc/$CONF" ]; then
+	CONF="/usr/local/etc/$CONF"
+else
+	Fatal "Can't find config file"
+fi
+. $CONF
+
+# defaults
+[ "$MASTERDIR" = "" ] && Fatal "\$MASTERDIR not set"
+[ -d "$MASTERDIR" ] || Fatal "\$MASTERDIR not a directory ($MASTERDIR)"
+[ "$DBDIR" = "" ] && DBDIR="$MASTERDIR/dnssec-reverb-db"
+[ "$KEYDIR" = "" ] && KEYDIR="$DBDIR/keydir"
+[ "$KEYBACKUPDIR" = "" ] && KEYBACKUPDIR="$DBDIR/backup"
 HEAD_ZSKNAME="zsk-"
 HEAD_KSKNAME="ksk-"
 HEAD_ZSSNAME="zss-"
@@ -57,24 +58,16 @@ HEAD_ZSRNAME="zsr-" # Removed ZSK
 HEAD_KSSNAME="kss-"
 
 # setup
-if [ ! -d $CONFIGDIR ]; then
-	mkdir -p $CONFIGDIR
-fi
-if [ ! -d $KEYBACKUPDIR ]; then
-	mkdir -p $KEYBACKUPDIR
-fi
-if [ ! -d $KEYDIR ]; then
-	mkdir -p $KEYDIR
-fi
+[ ! -d $DBDIR ] && mkdir -p $DBDIR
+[ ! -d $KEYBACKUPDIR ] && mkdir -p $KEYBACKUPDIR
+[ ! -d $KEYDIR ] && mkdir -p $KEYDIR
 
 cd $MASTERDIR
 
 _check_file()
 {
 	while [ "$1" != "" ]; do
-		if [ ! -s "$1" ]; then
-			Fatal "$1 does not exist."
-		fi
+		[ ! -s "$1" ] && Fatal "$1 does not exist."
 		shift
 	done
 }
@@ -82,27 +75,14 @@ _check_file()
 _check_nofile()
 {
 	while [ "$1" != "" ]; do
-		if [ -f "$1" ]; then
-			Fatal "$1 exist."
-		fi
+		[ -f "$1" ] && Fatal "$1 exist."
 		shift
 	done
 }
 
-Fatal()
-{
-	if [ "$LOCKF" != "" ]; then
-		rm $LOCKF
-	fi
-	echo $1
-	exit 1
-}
-
 _usage()
 {
-	if [ "$LOCKF" != "" ]; then
-		rm $LOCKF
-	fi
+	[ "$LOCKF" != "" ] && rm $LOCKF
 	cat <<EOF
 usage: $PROG keygen <zone>
        $PROG rmkeys <zone>
@@ -123,23 +103,21 @@ sign()
 	KSK=`head -1 $KSK_FILE`
 	ZSK=`head -1 $ZSK_FILE`
 	KSS=""
-	if [ -s $KSK_S_FILE ]; then
-		KSS=`head -1 $KSK_S_FILE`
-	fi
+	[ -s $KSK_S_FILE ] && KSS=`head -1 $KSK_S_FILE`
 	_check_file "$KEYDIR/$KSK.private" "$KEYDIR/$ZSK.private"
 
-	LASTSERIAL=`cat $CONFIGDIR/lastserial`
+	LASTSERIAL=`cat $DBDIR/lastserial`
 	LASTDATE=`echo $LASTSERIAL | sed 's/..$//'`
 	DATE=`date +%Y%m%d`
 	if [ "$LASTDATE" = "$DATE" ]; then
-	SERIAL=$(( $LASTSERIAL + 1 ))
-		echo $SERIAL > $CONFIGDIR/lastserial
+		SERIAL=$(( $LASTSERIAL + 1 ))
+		echo $SERIAL > $DBDIR/lastserial
  	else
 		SERIAL=`date +%Y%m%d00`
-		echo $SERIAL > $CONFIGDIR/lastserial
+		echo $SERIAL > $DBDIR/lastserial
 	fi
 
-	ZONE_PREPROCESS="sed s/_SERIAL_/$SERIAL/"
+	ZONE_PREPROCESS="sed s/$SERIAL_TAG/$SERIAL/"
 	$ZONE_PREPROCESS $ZONEFILE > $ZONEFILE.tmp
 
 	cat $KSK_FILE $ZSK_FILE | while read keyfile
@@ -156,9 +134,7 @@ sign()
 		fi
 	done
 	cmdname=`basename $signzone`
-	if [ "$KSS" != "" ]; then
-		KSS="$KEYDIR/$KSS"
-	fi
+	[ "$KSS" != "" ] && KSS="$KEYDIR/$KSS"
 	$signzone $_SIGN_PARAM -o $ZONE -f "$ZONEFILE.signed" $ZONEFILE.tmp $KEYDIR/$ZSK $KEYDIR/$KSK $KSS
 	echo "signzone returns $?"
 	rm $ZONEFILE.tmp
@@ -170,12 +146,12 @@ status()
 	if [ -f $KSK_FILE ]; then
 		echo -n "$ZONE's KSK = "
 		cat $KSK_FILE;
-		$dsfromkey $_DS_PARAM $KEYDIR/`cat $KSK_FILE`.key
+		$key2ds $_DS_PARAM $KEYDIR/`cat $KSK_FILE`.key
 	fi
 	if [ -f $KSK_S_FILE ]; then
 		echo -n "$ZONE's next KSK = "
 		cat $KSK_S_FILE;
-		$dsfromkey $_DS_PARAM $KEYDIR/`cat $KSK_S_FILE`.key
+		$key2ds $_DS_PARAM $KEYDIR/`cat $KSK_S_FILE`.key
 	fi
 	if [ -f $ZSK_FILE ]; then
 		echo -n "$ZONE's ZSK = "
@@ -198,9 +174,7 @@ keygensub()
 	newfile="$3"
 	tmpfile="$3.tmp"
 	_KEY=`$keygen $1 $2`
-	if [ -f $_KEY.ds ]; then
-		rm $_KEY.ds
-	fi
+	[ -f $_KEY.ds ] && rm $_KEY.ds
 	if [ ! -s $_KEY.key ]; then
 		rm $_KEY.key
 		Fatal "cannot write new key: $1 $2 $3"
@@ -247,16 +221,14 @@ shift
 
 if [ "$1" = "" ]; then
 	Fatal "A zone must be provided."
-	_usage
-	exit 1
 else
 	ZONELIST="$*"
 fi
 
 for ZONE in $ZONELIST
 do
-	LOCKF="$CONFIGDIR/$ZONE.lock"
-	TMPF="$CONFIGDIR/$ZONE.$$"
+	LOCKF="$DBDIR/$ZONE.lock"
+	TMPF="$DBDIR/$ZONE.$$"
 	OUTF="$ZONE.signed"
 	KSK_FILE="$KEYDIR/$HEAD_KSKNAME$ZONE"
 	ZSK_FILE="$KEYDIR/$HEAD_ZSKNAME$ZONE"
@@ -356,8 +328,5 @@ do
 	rm $LOCKF
 done
 
-if [ "$SIGN_OPT" = 1 ]; then
-	sign
-fi
-
+[ "$SIGN_OPT" = 1 ] && sign
 exit 0

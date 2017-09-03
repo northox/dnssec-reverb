@@ -6,53 +6,63 @@ I was looking for something that would take care of the rotation of my DNSSEC ke
 Reverb is straightforward and couldn't be more trustable/easy to audit. Enjoy!
 
 ## Features
-TODO
+* Supports nsd and bind servers
+* Supports ldns and bind's dnssec tools
+* Should run on any unix-like systems&trade;
+* Don't trust me, audit the code!&trade;
+* KISS&reg;
 
 ## Requirements
-* nsd (support for bind should be easy)
-* ldns from NLnet labs (support for bind's DNSSEC tools should be easy)
+* nsd or bind
+* ldns from NLnet labs or bind's DNSSEC tools
 * standard unix tools such as sed
 
 ## Installation
 1. Copy dnssec-reverb into some directory.
 
-    `$ sudo cp dnssec-reverb /var/nsd/zones/master`
+    `$ sudo cp dnssec-reverb /usr/local/sbin/`
 
-2. Create `dnssec-reverb.conf` in the same directory if you need to override some config - see below.
-
-    `echo ZSK_PARAM_example.org="-a RSASHA1-NSEC3-SHA1" >> /var/nsd/zones/master/dnssec-reverb.conf`
-
-3. Prepare traditional zone files. The file name should be equal to the zone name.
-
-    `vi /var/nsd/zones/master/example.com`
-    
-4. Edit nsd.conf to load the signed zone file:
+2. Create a configuration specifying the directory where it can find the master zone files (MASTERDIR) and any path or parameters overrides as specified below.
 
     ```
-    zone "example.com" {
+    echo MASTERDIR="/vas/nsd/zones/master" >> /etc/dnssec-reverb.conf
+    echo ZSK_PARAM_example.org="-a RSASHA1-NSEC3-SHA1" >> /etc/dnssec-reverb.conf
+    ```
+
+3. Prepare the traditional zone files and set the serial to this special tag: _SERIAL_. The file name should be equal to the zone name.
+
+    ```
+    $ grep serial example.org
+    _SERIAL_ ; serial
+    ```
+    
+4. Edit nsd.conf to load the **signed** zone file:
+
+    ```
+    zone "example.org" {
         type master;
-        file "/var/nsd/zones/master/example.com.signed";
+        file "/var/nsd/zones/master/example.org.signed";
     }
     ```
 
 5. Generate first key and sign zone:
 
     ```
-    dnssec-reverb keygen example.com  
-    dnssec-reverb sign example.com
+    dnssec-reverb keygen example.org
+    dnssec-reverb sign example.org
     ```
     
 You can debug your DNSSEC chain using this tool: http://dnsviz.net/d/mantor.org/dnssec/
 
 ## Configuration
-To override the default configuration (as describe below), simply create a `dnssec-reverb.conf` file at $MASTERDIR location.
+To override the default configuration (as describe below in parentheses), simply edit `dnssec-reverb.conf`.
 
 Path:
-* MASTERDIR: Zone file directory (/var/nsd/zones/master)
-* CONFIGDIR: directory used to store state and data ($MASTERDIR/dnssec-reverb-db)
+* MASTERDIR: Master zone file directory (**mandatory - no default**)
+* DBDIR: directory used to store state and data ($MASTERDIR/dnssec-reverb-db)
 * keygen: ldns-keygen path (/usr/local/bin/ldns-keygen)
 * signzone: ldns-signzone path (/usr/local/bin/ldns-signzone)
-* dsfromkey: ldns-key2ds path (/usr/local/bin/ldns-key2ds-n)
+* key2ds: ldns-key2ds path (/usr/local/bin/ldns-key2ds-n)
 * checkzone: nsd-checkzone path (/usr/sbin/nsd-checkzone)
 * control: nsd-control path (/usr/sbin/nsd-control)
 * RELOAD_COMMAND: reload command ($checkzone \$ZONE \$ZONE || exit 1; $control reload && $control notify)
@@ -61,7 +71,7 @@ Params:
 * KSK_PARAM: keygen's options for KSK (-a ECDSAP256SHA256 -k)
 * ZSK_PARAM: keygen's options for ZSK (-a ECDSAP256SHA256)
 * SIGN_PARAM: signzone options (-n)
-* DS_PARAM: dsfromkey options (-2)
+* DS_PARAM: key2ds or dsfromkey options (-n -2)
 
 The previous configuration set can be overridden by zone by simply adding "\_$zone" at the end of the variable. For example: ZSK_PARAM_example.org="-a RSASHA1-NSEC3-SHA1" to change the cipher for example.org's keys only. All zone name must be lowercase. Zone whose name contains '.' and '-' characters are replaced by '_'.
 
@@ -70,14 +80,11 @@ The previous configuration set can be overridden by zone by simply adding "\_$zo
 $ dnssec-reverb
 usage: dnssec-reverb keygen <zone>
        dnssec-reverb rmkeys <zone>
-
        dnssec-reverb [-s] ksk-add <zone>
        dnssec-reverb [-s] ksk-roll <zone>
-
        dnssec-reverb [-s] zsk-add <zone>
        dnssec-reverb [-s] zsk-roll <zone>
        dnssec-reverb [-s] zsk-rmold <zone>
-
        dnssec-reverb sign <zone>
        dnssec-reverb status <zone>
 ```

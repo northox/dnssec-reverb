@@ -1,13 +1,9 @@
 keygen="/usr/local/bin/dnssec-keygen"
 signzone="/usr/local/bin/dnssec-signzone"
-dsfromkey="/usr/local/bin/dnssec-dsfromkey"
+key2ds="/usr/local/bin/dnssec-dsfromkey"
 checkzone="/usr/local/sbin/named-checkzone"
 control="/usr/local/sbin/rndc"
-
-MASTERDIR="/etc/namedb/master"
  
-RELOAD_COMMAND="$checkzone \$ZONE \$ZONE || exit 1; $control reload && $control notify"
-
 KSK_PARAM="-n zone -a ECDSAP256SHA256 -f ksk"
 ZSK_PARAM="-n zone -a ECDSAP256SHA256 "
 SIGN_PARAM="-N increment"
