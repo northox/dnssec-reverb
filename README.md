@@ -22,7 +22,7 @@ Reverb is straightforward and couldn't be more trustable/easy to audit. Enjoy!
 
     `$ sudo cp dnssec-reverb /usr/local/sbin/`
 
-2. Create a configuration specifying the directory where it can find the master zone files (MASTERDIR) and any path or parameters overrides as specified below.
+2. Create a configuration file. In order of priority, the config will be searched 1) by looking at the `$DNSSEC_REVERB_CONF` environment variable, 2) within the same directory than the script (`dirname $0`), 3) within `/etc/` and finally 4) within `/usr/local/etc/`. It must specify the master zone file directory using the MASTERDIR variable.
 
     ```
     echo MASTERDIR="/vas/nsd/zones/master" >> /etc/dnssec-reverb.conf
