@@ -21,6 +21,7 @@ DS_PARAM="-n -2"
 SERIAL_TAG="_SERIAL_"
 
 NOW=`date +%Y%m%d%H%M%S`
+EXPIRE=$(echo "`date +%s` + (31*24*60*60)" | bc)
 LOCKF=""
 
 Fatal()
@@ -135,7 +136,7 @@ sign()
 	done
 	cmdname=`basename $signzone`
 	[ "$KSS" != "" ] && KSS="$KEYDIR/$KSS"
-	$signzone $_SIGN_PARAM -o $ZONE -f "$ZONEFILE.signed" $ZONEFILE.tmp $KEYDIR/$ZSK $KEYDIR/$KSK $KSS
+	$signzone $_SIGN_PARAM -e $EXPIRE -o $ZONE -f "$ZONEFILE.signed" $ZONEFILE.tmp $KEYDIR/$ZSK $KEYDIR/$KSK $KSS
 	echo "signzone returns $?"
 	rm $ZONEFILE.tmp
 	eval $RELOAD_COMMAND
