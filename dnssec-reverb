@@ -53,6 +53,7 @@ fi
 [ "$KEYDIR" = "" ] && KEYDIR="$DBDIR/keydir"
 [ "$KEYBACKUPDIR" = "" ] && KEYBACKUPDIR="$DBDIR/backup"
 [ "$SERIALDIR" = "" ] && SERIALDIR="$DBDIR/serial"
+[ "$DSDIR" = "" ] && DSDIR="$DBDIR/ds"
 HEAD_ZSKNAME="zsk-"
 HEAD_KSKNAME="ksk-"
 HEAD_ZSSNAME="zss-"
@@ -64,6 +65,7 @@ HEAD_KSSNAME="kss-"
 [ ! -d $KEYBACKUPDIR ] && mkdir -p $KEYBACKUPDIR
 [ ! -d $KEYDIR ] && mkdir -p $KEYDIR
 [ ! -d $SERIALDIR ] && mkdir -p $SERIALDIR
+[ ! -d $DSDIR ] && mkdir -p $DSDIR
 
 cd $MASTERDIR
 
@@ -147,15 +149,16 @@ sign()
 
 status()
 {
+	DS_FILE_TMP="$DS_FILE.tmp"
 	if [ -f $KSK_FILE ]; then
 		echo -n "$ZONE's KSK = "
 		cat $KSK_FILE;
-		$key2ds $_DS_PARAM $KEYDIR/`cat $KSK_FILE`.key
+		$key2ds $_DS_PARAM $KEYDIR/`cat $KSK_FILE`.key | tee $DS_FILE_TMP
 	fi
 	if [ -f $KSK_S_FILE ]; then
 		echo -n "$ZONE's next KSK = "
 		cat $KSK_S_FILE;
-		$key2ds $_DS_PARAM $KEYDIR/`cat $KSK_S_FILE`.key
+		$key2ds $_DS_PARAM $KEYDIR/`cat $KSK_S_FILE`.key | tee -a $DS_FILE_TMP
 	fi
 	if [ -f $ZSK_FILE ]; then
 		echo -n "$ZONE's ZSK = "
@@ -169,6 +172,7 @@ status()
 		echo -n "$ZONE's previous ZSK = "
 		cat $ZSK_R_FILE;
 	fi
+	mv -f $DS_FILE_TMP $DS_FILE
 }
 
 keygensub()
@@ -240,6 +244,7 @@ do
 	ZSK_S_FILE="$KEYDIR/$HEAD_ZSSNAME$ZONE"
 	ZSK_R_FILE="$KEYDIR/$HEAD_ZSRNAME$ZONE"
 	SERIAL_FILE="$SERIALDIR/$ZONE"
+	DS_FILE="$DSDIR/$ZONE"
 	ZONEFILE="$MASTERDIR/$ZONE"
 	ZONE_=`echo $ZONE | tr .- __`
 	eval _SIGN_PARAM=\${SIGN_PARAM_$ZONE_:-$SIGN_PARAM}
