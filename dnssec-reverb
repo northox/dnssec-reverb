@@ -52,6 +52,7 @@ fi
 [ "$DBDIR" = "" ] && DBDIR="$MASTERDIR/dnssec-reverb-db"
 [ "$KEYDIR" = "" ] && KEYDIR="$DBDIR/keydir"
 [ "$KEYBACKUPDIR" = "" ] && KEYBACKUPDIR="$DBDIR/backup"
+[ "$SERIALDIR" = "" ] && SERIALDIR="$DBDIR/serial"
 HEAD_ZSKNAME="zsk-"
 HEAD_KSKNAME="ksk-"
 HEAD_ZSSNAME="zss-"
@@ -62,6 +63,7 @@ HEAD_KSSNAME="kss-"
 [ ! -d $DBDIR ] && mkdir -p $DBDIR
 [ ! -d $KEYBACKUPDIR ] && mkdir -p $KEYBACKUPDIR
 [ ! -d $KEYDIR ] && mkdir -p $KEYDIR
+[ ! -d $SERIALDIR ] && mkdir -p $SERIALDIR
 
 cd $MASTERDIR
 
@@ -107,15 +109,16 @@ sign()
 	[ -s $KSK_S_FILE ] && KSS=`head -1 $KSK_S_FILE`
 	_check_file "$KEYDIR/$KSK.private" "$KEYDIR/$ZSK.private"
 
-	LASTSERIAL=`cat $DBDIR/lastserial`
+	LASTSERIAL=0
+	[ -f $SERIAL_FILE ] && LASTSERIAL=`cat $SERIAL_FILE`
 	LASTDATE=`echo $LASTSERIAL | sed 's/..$//'`
 	DATE=`date +%Y%m%d`
 	if [ "$LASTDATE" = "$DATE" ]; then
 		SERIAL=$(( $LASTSERIAL + 1 ))
-		echo $SERIAL > $DBDIR/lastserial
+		echo $SERIAL > $SERIAL_FILE
  	else
 		SERIAL=`date +%Y%m%d00`
-		echo $SERIAL > $DBDIR/lastserial
+		echo $SERIAL > $SERIAL_FILE
 	fi
 
 	ZONE_PREPROCESS="sed s/$SERIAL_TAG/$SERIAL/"
@@ -236,6 +239,7 @@ do
 	KSK_S_FILE="$KEYDIR/$HEAD_KSSNAME$ZONE"
 	ZSK_S_FILE="$KEYDIR/$HEAD_ZSSNAME$ZONE"
 	ZSK_R_FILE="$KEYDIR/$HEAD_ZSRNAME$ZONE"
+	SERIAL_FILE="$SERIALDIR/$ZONE"
 	ZONEFILE="$MASTERDIR/$ZONE"
 	ZONE_=`echo $ZONE | tr .- __`
 	eval _SIGN_PARAM=\${SIGN_PARAM_$ZONE_:-$SIGN_PARAM}
