@@ -138,7 +138,6 @@ sign()
 			cat "$KEYDIR/$keyfile.key" >> $ZONEFILE.tmp
 		fi
 	done
-	cmdname=$(basename $signzone)
 	[ "$KSS" != "" ] && KSS="$KEYDIR/$KSS"
 	$signzone $_SIGN_PARAM -o $ZONE -f "$ZONEFILE.signed" $ZONEFILE.tmp $KEYDIR/$ZSK $KEYDIR/$KSK $KSS
 	echo "signzone returns $?"
@@ -236,7 +235,6 @@ for ZONE in $ZONELIST
 do
 	LOCKF="$DBDIR/$ZONE.lock"
 	TMPF="$DBDIR/$ZONE.$$"
-	OUTF="$ZONE.signed"
 	KSK_FILE="$KEYDIR/$HEAD_KSKNAME$ZONE"
 	ZSK_FILE="$KEYDIR/$HEAD_ZSKNAME$ZONE"
 	KSK_S_FILE="$KEYDIR/$HEAD_KSSNAME$ZONE"
