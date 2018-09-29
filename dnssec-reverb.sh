@@ -125,7 +125,7 @@ sign()
 	ZONE_PREPROCESS="sed s/$SERIAL_TAG/$SERIAL/"
 	$ZONE_PREPROCESS "$ZONEFILE" > "$ZONEFILE.tmp"
 
-	cat "$KSK_FILE" "$ZSK_FILE" | while read keyfile
+	cat "$KSK_FILE" "$ZSK_FILE" | while read -r keyfile
 	do
 		_check_file "$KEYDIR/$keyfile.key"
 		cat "$KEYDIR/$keyfile.key" >> "$ZONEFILE.tmp"
@@ -186,7 +186,7 @@ keygensub()
 		Fatal "cannot write new key: $1 $2 $3"
 	fi
 	echo "$_KEY" > "$tmpfile"
-	read "_KEY2" < "$tmpfile"
+	read -r "_KEY2" < "$tmpfile"
 	if [ "$_KEY" != "$_KEY2" ]; then
 		rm "$tmpfile"
 		rm "$_KEY.key"
