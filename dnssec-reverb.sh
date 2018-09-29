@@ -214,10 +214,10 @@ remove_previouskey()
 	fi
 }
 
-if [ "$1" = "" -o "$1" = "-h" -o "$1" = "-?" -o "$1" = "--help" ]; then
+if [ "$1" = "" ] || [ "$1" = "-h" ] || [ "$1" = "-?" ] || [ "$1" = "--help" ]; then
 	_usage
 	exit 0
-elif [ "$1" = "-s" -o "$1" = "--sign" ];then
+elif [ "$1" = "-s" ] || [ "$1" = "--sign" ];then
 	SIGN_OPT=1
 	shift
 fi
@@ -251,7 +251,7 @@ do
 
 	echo "LOCK$$" > "$TMPF"
 	LOCKSTR=$(cat "$TMPF")
-	if [ ! -f "$TMPF" -o "LOCK$$" != "$LOCKSTR" ]; then
+	if [ ! -f "$TMPF" ] || [ "LOCK$$" != "$LOCKSTR" ]; then
 		Fatal "cannot write lock file $TMPF"
 	fi
 	if ln "$TMPF" "$LOCKF"; then
