@@ -9,11 +9,11 @@
 
 PROG=$(basename "$0")
 DIR=$(dirname "$0")
-keygen="/usr/local/bin/ldns-keygen"
-signzone="/usr/local/bin/ldns-signzone"
-key2ds="/usr/local/bin/ldns-key2ds"
-checkzone="/usr/sbin/nsd-checkzone"
-control="/usr/sbin/nsd-control"
+keygen="$(which ldns-keygen)"
+signzone="$(which ldns-signzone)"
+key2ds="$(which ldns-key2ds)"
+checkzone="$(which nsd-checkzone)"
+control="$(which nsd-control)"
 RELOAD_COMMAND="$checkzone \$ZONE \$ZONE || exit 1; $control reload && $control notify"
 KSK_PARAM="-a ECDSAP256SHA256 -k"
 ZSK_PARAM="-a ECDSAP256SHA256 "
