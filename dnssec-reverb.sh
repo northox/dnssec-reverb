@@ -47,6 +47,11 @@ fi
 . "$CONF"
 
 # defaults
+[ "$keygen" = "" ] && Fatal "Can't find \$keygen"
+[ "$signzone" = "" ] && Fatal "Can't find \$signzone"
+[ "$key2ds" = "" ] && Fatal "Can't find \$key2ds"
+[ "$checkzone" = "" ] && Fatal "Can't find \$checkzone"
+[ "$control" = "" ] && Fatal "Can't find \$control"
 [ "$MASTERDIR" = "" ] && Fatal "\$MASTERDIR not set"
 [ -d "$MASTERDIR" ] || Fatal "\$MASTERDIR not a directory ($MASTERDIR)"
 [ "$DBDIR" = "" ] && DBDIR="$MASTERDIR/dnssec-reverb-db"
