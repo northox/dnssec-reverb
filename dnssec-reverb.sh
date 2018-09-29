@@ -6,8 +6,8 @@
 # Copyright (c) 2017 Danny Fullerton <danny@mantor.org>. 
 # Copyright (c) 2009-2013 Kazunori Fujiwara <fujiwara@wide.ad.jp>.
 
-PROG=`basename $0`
-DIR=`dirname $0`
+PROG=$(basename $0)
+DIR=$(dirname $0)
 keygen="/usr/local/bin/ldns-keygen"
 signzone="/usr/local/bin/ldns-signzone"
 key2ds="/usr/local/bin/ldns-key2ds"
@@ -20,7 +20,7 @@ SIGN_PARAM="-n"
 DS_PARAM="-n -2"
 SERIAL_TAG="_SERIAL_"
 
-NOW=`date +%Y%m%d%H%M%S`
+NOW=$(date +%Y%m%d%H%M%S)
 LOCKF=""
 
 Fatal()
@@ -104,21 +104,21 @@ EOF
 sign()
 {
 	_check_file $ZONEFILE $KSK_FILE $ZSK_FILE
-	KSK=`head -1 $KSK_FILE`
-	ZSK=`head -1 $ZSK_FILE`
+	KSK=$(head -1 $KSK_FILE)
+	ZSK=$(head -1 $ZSK_FILE)
 	KSS=""
-	[ -s $KSK_S_FILE ] && KSS=`head -1 $KSK_S_FILE`
+	[ -s $KSK_S_FILE ] && KSS=$(head -1 $KSK_S_FILE)
 	_check_file "$KEYDIR/$KSK.private" "$KEYDIR/$ZSK.private"
 
 	LASTSERIAL=0
-	[ -f $SERIAL_FILE ] && LASTSERIAL=`cat $SERIAL_FILE`
-	LASTDATE=`echo $LASTSERIAL | sed 's/..$//'`
-	DATE=`date +%Y%m%d`
+	[ -f $SERIAL_FILE ] && LASTSERIAL=$(cat $SERIAL_FILE)
+	LASTDATE=$(echo $LASTSERIAL | sed 's/..$//')
+	DATE=$(date +%Y%m%d)
 	if [ "$LASTDATE" = "$DATE" ]; then
 		SERIAL=$(( $LASTSERIAL + 1 ))
 		echo $SERIAL > $SERIAL_FILE
  	else
-		SERIAL=`date +%Y%m%d00`
+		SERIAL=$(date +%Y%m%d00)
 		echo $SERIAL > $SERIAL_FILE
 	fi
 
@@ -133,12 +133,12 @@ sign()
 	for i in $KSK_S_FILE $ZSK_S_FILE $ZSK_R_FILE
 	do
 		if [ -s $i ]; then
-			keyfile=`head -1 $i`
+			keyfile=$(head -1 $i)
 			_check_file "$KEYDIR/$keyfile.key"
 			cat "$KEYDIR/$keyfile.key" >> $ZONEFILE.tmp
 		fi
 	done
-	cmdname=`basename $signzone`
+	cmdname=$(basename $signzone)
 	[ "$KSS" != "" ] && KSS="$KEYDIR/$KSS"
 	$signzone $_SIGN_PARAM -o $ZONE -f "$ZONEFILE.signed" $ZONEFILE.tmp $KEYDIR/$ZSK $KEYDIR/$KSK $KSS
 	echo "signzone returns $?"
@@ -152,12 +152,12 @@ status()
 	if [ -f $KSK_FILE ]; then
 		echo -n "$ZONE's KSK = "
 		cat $KSK_FILE;
-		$key2ds $_DS_PARAM $KEYDIR/`cat $KSK_FILE`.key | tee $DS_FILE_TMP
+		$key2ds $_DS_PARAM $KEYDIR/$(cat $KSK_FILE).key | tee $DS_FILE_TMP
 	fi
 	if [ -f $KSK_S_FILE ]; then
 		echo -n "$ZONE's next KSK = "
 		cat $KSK_S_FILE;
-		$key2ds $_DS_PARAM $KEYDIR/`cat $KSK_S_FILE`.key | tee -a $DS_FILE_TMP
+		$key2ds $_DS_PARAM $KEYDIR/$(cat $KSK_S_FILE).key | tee -a $DS_FILE_TMP
 	fi
 	if [ -f $ZSK_FILE ]; then
 		echo -n "$ZONE's ZSK = "
@@ -180,7 +180,7 @@ keygensub()
 	echo "$keygen $1 $2"
 	newfile="$3"
 	tmpfile="$3.tmp"
-	_KEY=`$keygen $1 $2`
+	_KEY=$($keygen $1 $2)
 	[ -f $_KEY.ds ] && rm $_KEY.ds
 	if [ ! -s $_KEY.key ]; then
 		rm $_KEY.key
@@ -200,7 +200,7 @@ keygensub()
 removekeys_sub()
 {
 	if [ -f $1 ]; then
-		KEY=`head -1 $1`
+		KEY=$(head -1 $1)
 		if [ -f $KEYDIR/$KEY.key ]; then
 			mv $KEYDIR/$KEY.key $KEYDIR/$KEY.private $KEYBACKUPDIR/
 		fi
@@ -245,14 +245,14 @@ do
 	SERIAL_FILE="$SERIALDIR/$ZONE"
 	DS_FILE="$DSDIR/$ZONE"
 	ZONEFILE="$MASTERDIR/$ZONE"
-	ZONE_=`echo $ZONE | tr .- __`
+	ZONE_=$(echo $ZONE | tr .- __)
 	eval _SIGN_PARAM=\${SIGN_PARAM_$ZONE_:-$SIGN_PARAM}
 	eval _KSK_PARAM=\${KSK_PARAM_$ZONE_:-$KSK_PARAM}
 	eval _ZSK_PARAM=\${ZSK_PARAM_$ZONE_:-$ZSK_PARAM}
 	eval _DS_PARAM=\${DS_PARAM_$ZONE_:-$DS_PARAM}
 
 	echo "LOCK$$" > $TMPF
-	LOCKSTR=`cat $TMPF`
+	LOCKSTR=$(cat $TMPF)
 	if [ ! -f $TMPF -o "LOCK$$" != "$LOCKSTR" ]; then
 		Fatal "cannot write lock file $TMPF"
 	fi
@@ -286,8 +286,8 @@ do
 		;;
 	ksk-roll)
 		_check_file $ZONEFILE $KSK_FILE $KSK_S_FILE
-		KSK=`head -1 $KSK_FILE`
-		KSS=`head -1 $KSK_S_FILE`
+		KSK=$(head -1 $KSK_FILE)
+		KSS=$(head -1 $KSK_S_FILE)
 		_check_file $KEYDIR/$KSK.key $KEYDIR/$KSS.key $KEYDIR/$KSK.private $KEYDIR/$KSS.private
 		mv $KEYDIR/$KSK.key $KEYDIR/$KSK.private $KEYBACKUPDIR/
 		mv $KSK_S_FILE $KSK_FILE
@@ -305,8 +305,8 @@ do
 		;;
 	zsk-roll)
 		_check_file $ZONEFILE $ZSK_FILE $ZSK_S_FILE
-		ZSK=`head -1 $ZSK_FILE`
-		ZSS=`head -1 $ZSK_S_FILE`
+		ZSK=$(head -1 $ZSK_FILE)
+		ZSS=$(head -1 $ZSK_S_FILE)
 		_check_file $KEYDIR/$ZSK.key $KEYDIR/$ZSS.key $KEYDIR/$ZSK.private $KEYDIR/$ZSS.private
 		remove_previouskey
 		mv $ZSK_FILE $ZSK_R_FILE
