@@ -1,8 +1,8 @@
-keygen="/usr/local/bin/dnssec-keygen"
-signzone="/usr/local/bin/dnssec-signzone"
-key2ds="/usr/local/bin/dnssec-dsfromkey"
-checkzone="/usr/local/sbin/named-checkzone"
-control="/usr/local/sbin/rndc"
+keygen="$(which dnssec-keygen)"
+signzone="$(which dnssec-signzone)"
+key2ds="$(which dnssec-dsfromkey)"
+checkzone="$(which named-checkzone")
+control="$(which rndc)"
  
 KSK_PARAM="-n zone -a ECDSAP256SHA256 -f ksk"
 ZSK_PARAM="-n zone -a ECDSAP256SHA256 "
