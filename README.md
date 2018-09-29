@@ -16,21 +16,25 @@ Reverb is straightforward and couldn't be more trustable/easy to audit. Enjoy!
 ## Requirements
 * nsd or bind
 * ldns from NLnet labs or bind's DNSSEC tools
-* standard unix tools such as sed
+* standard unix tools such as sed & make
 
 ## Installation
-1. Copy dnssec-reverb into some directory.
+1. Create an executable script `dnssec-reverb` from source:
+
+    `$ make`
+
+2. Copy dnssec-reverb into some directory.
 
     `$ sudo cp dnssec-reverb /usr/local/sbin/`
 
-2. Create a configuration file. In order of priority, the config will be searched 1) by looking at the `$DNSSEC_REVERB_CONF` environment variable, 2) within the same directory than the script (`dirname $0`), 3) within `/etc/` and finally 4) within `/usr/local/etc/`. It must specify the master zone file directory using the MASTERDIR variable.
+3. Create a configuration file. In order of priority, the config will be searched 1) by looking at the `$DNSSEC_REVERB_CONF` environment variable, 2) within the same directory than the script (`dirname $0`), 3) within `/etc/` and finally 4) within `/usr/local/etc/`. It must specify the master zone file directory using the MASTERDIR variable.
 
     ```
     echo MASTERDIR="/vas/nsd/zones/master" >> /etc/dnssec-reverb.conf
     echo ZSK_PARAM_example.org="-a RSASHA1-NSEC3-SHA1" >> /etc/dnssec-reverb.conf
     ```
 
-3. Prepare the traditional zone files and set the serial to this special tag: `_SERIAL_`. The file name should be equal to the zone name.
+4. Prepare the traditional zone files and set the serial to this special tag: `_SERIAL_`. The file name should be equal to the zone name.
 
     ```
     $ grep serial example.org
@@ -43,7 +47,7 @@ Reverb is straightforward and couldn't be more trustable/easy to audit. Enjoy!
 
     ```
     
-4. Edit nsd.conf to load the **signed** zone file:
+5. Edit nsd.conf to load the **signed** zone file:
 
     ```
     zone "example.org" {
@@ -52,7 +56,7 @@ Reverb is straightforward and couldn't be more trustable/easy to audit. Enjoy!
     }
     ```
 
-5. Generate first key and sign zone:
+6. Generate first key and sign zone:
 
     ```
     dnssec-reverb keygen example.org
