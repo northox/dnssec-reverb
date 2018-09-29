@@ -149,25 +149,25 @@ status()
 {
 	DS_FILE_TMP="$DS_FILE.tmp"
 	if [ -f "$KSK_FILE" ]; then
-		echo -n "$ZONE's KSK = "
+		printf "%s's KSK = " "$ZONE"
 		cat "$KSK_FILE";
 		$key2ds "$_DS_PARAM" "$KEYDIR/$(cat "$KSK_FILE").key" | tee "$DS_FILE_TMP"
 	fi
 	if [ -f "$KSK_S_FILE" ]; then
-		echo -n "$ZONE's next KSK = "
+		printf "%s's next KSK = " "$ZONE"
 		cat "$KSK_S_FILE";
 		$key2ds "$_DS_PARAM" "$KEYDIR/$(cat "$KSK_S_FILE").key" | tee -a "$DS_FILE_TMP"
 	fi
 	if [ -f "$ZSK_FILE" ]; then
-		echo -n "$ZONE's ZSK = "
+		printf "%s's ZSK = " "$ZONE"
 		cat "$ZSK_FILE";
 	fi
 	if [ -f "$ZSK_S_FILE" ]; then
-		echo -n "$ZONE's next ZSK = "
+		printf "%s's next ZSK = " "$ZONE"
 		cat "$ZSK_S_FILE";
 	fi
 	if [ -f "$ZSK_R_FILE" ]; then
-		echo -n "$ZONE's previous ZSK = "
+		printf "%s's previous ZSK = " "$ZONE"
 		cat "$ZSK_R_FILE";
 	fi
 	mv -f "$DS_FILE_TMP" "$DS_FILE"
