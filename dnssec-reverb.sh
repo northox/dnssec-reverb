@@ -3,6 +3,7 @@
 #
 # @home: https://github.com/northox/dnssec-reverb
 # @license: Simplified BSD
+# Copyright (c) 2018 Juuso "Linda" Lapinlampi <linda@lindalap.fi>. 
 # Copyright (c) 2017 Danny Fullerton <danny@mantor.org>. 
 # Copyright (c) 2009-2013 Kazunori Fujiwara <fujiwara@wide.ad.jp>.
 
