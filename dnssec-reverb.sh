@@ -66,7 +66,7 @@ HEAD_KSSNAME="kss-"
 [ ! -d $SERIALDIR ] && mkdir -p $SERIALDIR
 [ ! -d $DSDIR ] && mkdir -p $DSDIR
 
-cd $MASTERDIR
+cd $MASTERDIR || Fatal "Can't change directory to \$MASTERDIR"
 
 _check_file()
 {
@@ -176,7 +176,7 @@ status()
 
 keygensub()
 {
-	cd $KEYDIR;
+	cd $KEYDIR || Fatal "Can't change directory to \$KEYDIR"
 	echo "$keygen $1 $2"
 	newfile="$3"
 	tmpfile="$3.tmp"
@@ -194,7 +194,7 @@ keygensub()
 		Fatal "cannot write $tmpfile"
 	fi
 	mv $tmpfile $newfile
-	cd $MASTERDIR
+	cd $MASTERDIR || Fatal "Can't change directory to \$MASTERDIR"
 }
 
 removekeys_sub()
