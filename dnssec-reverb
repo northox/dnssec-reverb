@@ -21,7 +21,6 @@ DS_PARAM="-n -2"
 SERIAL_TAG="_SERIAL_"
 
 NOW=`date +%Y%m%d%H%M%S`
-EXPIRE=$(echo "`date +%s` + (31*24*60*60)" | bc)
 LOCKF=""
 
 Fatal()
@@ -45,6 +44,15 @@ else
 	Fatal "Can't find config file"
 fi
 . $CONF
+
+# bind - expire format: now +N seconds
+if [[ $signzone = *'dnssec-signzone' ]]; then
+  EXPIRE="+2678400"
+fi
+# nsd - expire format: timestamp
+if [[ $signzone = *'ldns-signzone' ]]; then
+  EXPIRE=$(echo "`date +%s` + (31*24*60*60)" | bc)
+fi
 
 # defaults
 [ "$MASTERDIR" = "" ] && Fatal "\$MASTERDIR not set"
