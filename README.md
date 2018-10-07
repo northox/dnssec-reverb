@@ -74,6 +74,9 @@ Path:
 * control: nsd-control path (/usr/sbin/nsd-control)
 * RELOAD_COMMAND: reload command ($checkzone \$ZONE \$ZONE || exit 1; $control reload && $control notify)
 
+Signatures expiration:
+* EXPIRE_DAYS: used to calculate the expiration date of the signatures to this date. Defaults to 33.
+
 Params:
 * KSK_PARAM: keygen's options for KSK (-a ECDSAP256SHA256 -k)
 * ZSK_PARAM: keygen's options for ZSK (-a ECDSAP256SHA256)
