@@ -19,8 +19,8 @@ ZSK_PARAM="-a ECDSAP256SHA256 "
 SIGN_PARAM="-n"
 DS_PARAM="-n -2"
 SERIAL_TAG="_SERIAL_"
-
 NOW=`date +%Y%m%d%H%M%S`
+DEFAULT_EXPIRE=33
 LOCKF=""
 
 Fatal()
@@ -47,11 +47,11 @@ fi
 
 # bind - expire format: now +N seconds
 if [[ $signzone = *'dnssec-signzone' ]]; then
-  EXPIRE="+2678400"
+  EXPIRE=$(echo "+`echo "(${EXPIRE_DAYS:-$DEFAULT_EXPIRE}*24*60*60)" | bc`")
 fi
 # nsd - expire format: timestamp
 if [[ $signzone = *'ldns-signzone' ]]; then
-  EXPIRE=$(echo "`date +%s` + (31*24*60*60)" | bc)
+  EXPIRE=$(echo "`date +%s` + (${EXPIRE_DAYS:-$DEFAULT_EXPIRE}*24*60*60)" | bc)
 fi
 
 # defaults
