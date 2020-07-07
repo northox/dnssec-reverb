@@ -21,11 +21,10 @@ SIGN_PARAM="-n" # -n = use NSEC3
 DS_HASH="2" # 1=SHA1 2=SHA256 3=GOST 4=SHA384
 DS_PARAM="-$DS_HASH"
 EXPIRE_DAYS="33"
-SERIAL_TAG="_SERIAL_"
+SERIAL_TAG="00001111"
 
 NOW=$(date +%Y%m%d%H%M%S)
 UTIME=$(date +%s)
-EXPIRE=$(echo "$UTIME + ($EXPIRE_DAYS*24*60*60)" | bc)
 LOCKF=""
 
 Fatal()
@@ -36,7 +35,7 @@ Fatal()
 }
 
 if [ $(id -u) != 0 ]; then
-	Fatal "Must be root"
+	Fatal "must be root"
 fi
 
 
@@ -51,25 +50,24 @@ elif [ -r "/etc/$CONF" ]; then
 elif [ -r "/usr/local/etc/$CONF" ]; then
 	CONF="/usr/local/etc/$CONF"
 else
-	Fatal "Can't find config file"
+	Fatal "cannot find config file"
 fi
 . "$CONF"
 
 # bind - expire format: now +N seconds
 if [[ $signzone = *'dnssec-signzone' ]]; then
-  EXPIRE=$(echo "+`echo "(${EXPIRE_DAYS:-$DEFAULT_EXPIRE}*24*60*60)" | bc`")
-fi
+	EXPIRE=$(echo "+`echo "(${EXPIRE_DAYS}*24*60*60)" | bc`")
 # nsd - expire format: timestamp
-if [[ $signzone = *'ldns-signzone' ]]; then
-  EXPIRE=$(echo "`date +%s` + (${EXPIRE_DAYS:-$DEFAULT_EXPIRE}*24*60*60)" | bc)
+else
+	EXPIRE=$(echo "`date +%s` + (${EXPIRE_DAYS}*24*60*60)" | bc)
 fi
 
 # defaults
-[ "$KEYGEN_CMD" = "" ] && Fatal "Can't find \$KEYZONE_CMD"
-[ "$SIGNZONE_CMD" = "" ] && Fatal "Can't find \$SIGNZONE_CMD"
-[ "$KEY2DS_CMD" = "" ] && Fatal "Can't find \$KEY2DS_CMD"
-[ "$CHECKZONE_CMD" = "" ] && Fatal "Can't find \$CHECKZONE_CMD"
-[ "$CONTROL_CMD" = "" ] && Fatal "Can't find \$CONTROL_CMD"
+[ "$KEYGEN_CMD" = "" ] && Fatal "cannot find \$KEYZONE_CMD"
+[ "$SIGNZONE_CMD" = "" ] && Fatal "cannot find \$SIGNZONE_CMD"
+[ "$KEY2DS_CMD" = "" ] && Fatal "cannot find \$KEY2DS_CMD"
+[ "$CHECKZONE_CMD" = "" ] && Fatal "cannot find \$CHECKZONE_CMD"
+[ "$CONTROL_CMD" = "" ] && Fatal "cannot find \$CONTROL_CMD"
 [ "$MASTERDIR" = "" ] && Fatal "\$MASTERDIR not set"
 [ -d "$MASTERDIR" ] || Fatal "\$MASTERDIR not a directory ($MASTERDIR)"
 [ "$DBDIR" = "" ] && DBDIR="$MASTERDIR/dnssec-reverb-db"
@@ -90,12 +88,12 @@ ZSK_OLD_PREFIX="zsr-" # removed zsk
 [ ! -d "$SERIALDIR" ] && mkdir -p "$SERIALDIR"
 [ ! -d "$DSDIR" ] && mkdir -p "$DSDIR"
 
-cd "$MASTERDIR" || Fatal "Can't change directory to \$MASTERDIR"
+cd "$MASTERDIR" || Fatal "cannot change directory to \$MASTERDIR"
 
 _check_file()
 {
 	while [ "$1" != "" ]; do
-		[ ! -s "$1" ] && Fatal "$1 does not exist."
+		[ ! -s "$1" ] && Fatal "$1 does not exist"
 		shift
 	done
 }
@@ -103,7 +101,7 @@ _check_file()
 _check_nofile()
 {
 	while [ "$1" != "" ]; do
-		[ -f "$1" ] && Fatal "$1 exist."
+		[ -f "$1" ] && Fatal "$1 exist"
 		shift
 	done
 }
@@ -162,7 +160,7 @@ sign()
 		fi
 	done
 	[ "$KSS" != "" ] && KSS="$KEYDIR/$KSS"
-	$SIGNZONE_CMD "$_SIGN_PARAM" -e "$EXPIRE" -o "$ZONE" -f "$ZONEFILE.signed" "$ZONEFILE.tmp" "$KEYDIR/$ZSK" "$KEYDIR/$KSK" $KSS || Fatal "Failed to sign zone" && $CHECKZONE_CMD $ZONE $ZONE
+	$SIGNZONE_CMD "$_SIGN_PARAM" -e "$EXPIRE" -o "$ZONE" -f "$ZONEFILE.signed" "$ZONEFILE.tmp" "$KEYDIR/$ZSK" "$KEYDIR/$KSK" $KSS || Fatal "failed to sign zone" && $CHECKZONE_CMD $ZONE $ZONE
 	rm "$ZONEFILE.tmp"
 	eval "$RELOAD_CMD"
 }
@@ -192,7 +190,7 @@ status()
 
 keygen()
 {
-	cd "$KEYDIR" || Fatal "Can't change directory to \$KEYDIR"
+	cd "$KEYDIR" || Fatal "cannot change directory to \$KEYDIR"
 	newfile="$3"
 	tmpfile="$3.tmp"
 	_KEY=$($KEYGEN_CMD $1 "$2") || Fatal "'$KEYGEN_CMD $1 \"$2\"' failed with $?"
@@ -209,7 +207,7 @@ keygen()
 		Fatal "cannot write $tmpfile"
 	fi
 	mv "$tmpfile" "$newfile"
-	cd "$MASTERDIR" || Fatal "Can't change directory to \$MASTERDIR"
+	cd "$MASTERDIR" || Fatal "cannot change directory to \$MASTERDIR"
 }
 
 backupkeys()
@@ -239,7 +237,7 @@ CMD="$1"
 shift
 
 if [ "$1" = "" ]; then
-	Fatal "A zone must be provided."
+	Fatal "a zone must be provided"
 else
 	ZONELIST="$*"
 fi
@@ -261,14 +259,14 @@ do
 	eval _DS_PARAM=\${DS_PARAM_"$ZONE_":-"$DS_PARAM"}
 
 	if [ ! -s "$KSK_CUR_FILE" ]; then
-		Fatal "Zone does not exist"
+		Fatal "zone does not exist"
 	fi
 
         LOCKF="$DBDIR/$ZONE.lock"
 	echo "LOCK$$" > "$TMPF"
 	LOCKSTR=$(cat "$TMPF")
 	if [ ! -f "$TMPF" ] || [ "LOCK$$" != "$LOCKSTR" ]; then
-		Fatal "Cannot write lock file $TMPF"
+		Fatal "cannot write lock file $TMPF"
 	fi
 	if ln "$TMPF" "$LOCKF"; then
 		:
@@ -291,13 +289,13 @@ do
 
 		backupkeys "$KSK_CUR_FILE" "$ZSK_CUR_FILE" "$KSK_NEW_FILE" "$ZSK_NEW_FILE"
 		rm "$KSK_CUR_FILE" "$ZSK_CUR_FILE" "$KSK_NEW_FILE" "$ZSK_NEW_FILE"
-		echo "Removed all keys"
+		echo "All keys removed"
 		status
 		;;
 	ksk-add)
 		_check_nofile "$KSK_NEW_FILE"
 		keygen "$_KSK_PARAM" "$ZONE" "$KSK_NEW_FILE"
-		echo "Added new KSK"
+		echo "New KSK created"
 		status
 		;;
 	ksk-roll)
@@ -310,7 +308,7 @@ do
 		OLDKSK="$KSK"
 		KSK="$KSS"
 		KSS=""
-		echo "Removed old KSK"
+		echo "Rolled KSK"
 		status
 		;;
 	zsk-add)
@@ -331,14 +329,14 @@ do
 		OLDZSK="$ZSK"
 		ZSK="$ZSS"
 		ZSS=""
-		echo "Rolled ZSK - active set to old & new set to active"
+		echo "Rolled ZSK"
 		status
 		;;
 	zsk-rmold)
 		_check_file "$ZSK_OLD_FILE"
 		backupkeys "$ZSK_OLD_FILE"
 		mv "$ZSK_OLD_FILE" "$KEYBACKUPDIR/removed-ZSK-$NOW-$ZONE"
-		echo "Removed old ZSK"
+		echo "Old ZSK removed"
 		status
 		;;
 	status)
