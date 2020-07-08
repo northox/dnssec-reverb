@@ -79,6 +79,9 @@ Params - default value:
 * SIGN_PARAM: signzone options | '-n' (NSEC3)
 * DS_PARAM: key2ds or dsfromkey options | '-2' (SHA256)
 
+Signatures expiration:
+* EXPIRE_DAYS: used to calculate the expiration date of the signatures to this date. Defaults to 33.
+
 The previous configuration set can be overridden by zone by simply adding "\_$zone" at the end of the variable. For example: ZSK_PARAM_example.org="-a RSASHA1-NSEC3-SHA1" to change the cipher for example.org's keys only. All zone name must be lowercase. Zone whose name contains '.' and '-' characters are replaced by '_'.
 
 ## Usage
