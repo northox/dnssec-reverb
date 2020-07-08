@@ -3,32 +3,42 @@
 #
 # @home: https://github.com/northox/dnssec-reverb
 # @license: Simplified BSD
-# Copyright (c) 2017 Danny Fullerton <danny@mantor.org>. 
+# Copyright (c) 2017-2020 Danny Fullerton <danny@mantor.org>. 
+# Copyright (c) 2018 Juuso "Linda" Lapinlampi <linda@lindalap.fi>. 
 # Copyright (c) 2009-2013 Kazunori Fujiwara <fujiwara@wide.ad.jp>.
 
-PROG=`basename $0`
-DIR=`dirname $0`
-keygen="/usr/local/bin/ldns-keygen"
-signzone="/usr/local/bin/ldns-signzone"
-key2ds="/usr/local/bin/ldns-key2ds"
-checkzone="/usr/sbin/nsd-checkzone"
-control="/usr/sbin/nsd-control"
-RELOAD_COMMAND="$checkzone \$ZONE \$ZONE || exit 1; $control reload && $control notify"
+PROG=$(basename "$0")
+DIR=$(dirname "$0")
+KEYGEN_CMD="$(which ldns-keygen)"
+SIGNZONE_CMD="$(which ldns-signzone)"
+KEY2DS_CMD="$(which ldns-key2ds)"
+CHECKZONE_CMD="$(which nsd-checkzone)"
+CONTROL_CMD="$(which nsd-control)"
+RELOAD_CMD="(echo -n 'reload is '; $CONTROL_CMD reload) && (echo -n 'notify is '; $CONTROL_CMD notify)"
 KSK_PARAM="-a ECDSAP256SHA256 -k"
-ZSK_PARAM="-a ECDSAP256SHA256 "
-SIGN_PARAM="-n"
-DS_PARAM="-n -2"
+ZSK_PARAM="-a ECDSAP256SHA256"
+SIGN_PARAM="-n" # -n = use NSEC3
+DS_HASH="2" # 1=SHA1 2=SHA256 3=GOST 4=SHA384
+DS_PARAM="-$DS_HASH"
+EXPIRE_DAYS="33"
 SERIAL_TAG="_SERIAL_"
-NOW=`date +%Y%m%d%H%M%S`
-DEFAULT_EXPIRE=33
+
+NOW=$(date +%Y%m%d%H%M%S)
+UTIME=$(date +%s)
+EXPIRE=$(echo "$UTIME + ($EXPIRE_DAYS*24*60*60)" | bc)
 LOCKF=""
 
 Fatal()
 {
 	[ "$LOCKF" != "" ] && rm $LOCKF
-	echo $PROG: $1 >&2
+	echo "$PROG: $1" >&2
 	exit 1
 }
+
+if [ $(id -u) != 0 ]; then
+	Fatal "Must be root"
+fi
+
 
 # load conf
 CONF="dnssec-reverb.conf"
@@ -43,7 +53,7 @@ elif [ -r "/usr/local/etc/$CONF" ]; then
 else
 	Fatal "Can't find config file"
 fi
-. $CONF
+. "$CONF"
 
 # bind - expire format: now +N seconds
 if [[ $signzone = *'dnssec-signzone' ]]; then
@@ -55,6 +65,11 @@ if [[ $signzone = *'ldns-signzone' ]]; then
 fi
 
 # defaults
+[ "$KEYGEN_CMD" = "" ] && Fatal "Can't find \$KEYZONE_CMD"
+[ "$SIGNZONE_CMD" = "" ] && Fatal "Can't find \$SIGNZONE_CMD"
+[ "$KEY2DS_CMD" = "" ] && Fatal "Can't find \$KEY2DS_CMD"
+[ "$CHECKZONE_CMD" = "" ] && Fatal "Can't find \$CHECKZONE_CMD"
+[ "$CONTROL_CMD" = "" ] && Fatal "Can't find \$CONTROL_CMD"
 [ "$MASTERDIR" = "" ] && Fatal "\$MASTERDIR not set"
 [ -d "$MASTERDIR" ] || Fatal "\$MASTERDIR not a directory ($MASTERDIR)"
 [ "$DBDIR" = "" ] && DBDIR="$MASTERDIR/dnssec-reverb-db"
@@ -62,20 +77,20 @@ fi
 [ "$KEYBACKUPDIR" = "" ] && KEYBACKUPDIR="$DBDIR/backup"
 [ "$SERIALDIR" = "" ] && SERIALDIR="$DBDIR/serial"
 [ "$DSDIR" = "" ] && DSDIR="$DBDIR/ds"
-HEAD_ZSKNAME="zsk-"
-HEAD_KSKNAME="ksk-"
-HEAD_ZSSNAME="zss-"
-HEAD_ZSRNAME="zsr-" # Removed ZSK
-HEAD_KSSNAME="kss-"
+ZSK_CUR_PREFIX="zsk-" # current zsk
+KSK_CUR_PREFIX="ksk-" # current ksk
+ZSK_NEW_PREFIX="zss-" # new zsk
+KSK_NEW_PREFIX="kss-" # new ksk
+ZSK_OLD_PREFIX="zsr-" # removed zsk
 
 # setup
-[ ! -d $DBDIR ] && mkdir -p $DBDIR
-[ ! -d $KEYBACKUPDIR ] && mkdir -p $KEYBACKUPDIR
-[ ! -d $KEYDIR ] && mkdir -p $KEYDIR
-[ ! -d $SERIALDIR ] && mkdir -p $SERIALDIR
-[ ! -d $DSDIR ] && mkdir -p $DSDIR
+[ ! -d "$DBDIR" ] && mkdir -p "$DBDIR"
+[ ! -d "$KEYBACKUPDIR" ] && mkdir -p "$KEYBACKUPDIR"
+[ ! -d "$KEYDIR" ] && mkdir -p "$KEYDIR"
+[ ! -d "$SERIALDIR" ] && mkdir -p "$SERIALDIR"
+[ ! -d "$DSDIR" ] && mkdir -p "$DSDIR"
 
-cd $MASTERDIR
+cd "$MASTERDIR" || Fatal "Can't change directory to \$MASTERDIR"
 
 _check_file()
 {
@@ -112,124 +127,112 @@ EOF
 
 sign()
 {
-	_check_file $ZONEFILE $KSK_FILE $ZSK_FILE
-	KSK=`head -1 $KSK_FILE`
-	ZSK=`head -1 $ZSK_FILE`
+	_check_file "$ZONEFILE" "$KSK_CUR_FILE" "$ZSK_CUR_FILE"
+	KSK=$(head -1 "$KSK_CUR_FILE")
+	ZSK=$(head -1 "$ZSK_CUR_FILE")
 	KSS=""
-	[ -s $KSK_S_FILE ] && KSS=`head -1 $KSK_S_FILE`
+	[ -s "$KSK_NEW_FILE" ] && KSS=$(head -1 "$KSK_NEW_FILE")
 	_check_file "$KEYDIR/$KSK.private" "$KEYDIR/$ZSK.private"
-
 	LASTSERIAL=0
-	[ -f $SERIAL_FILE ] && LASTSERIAL=`cat $SERIAL_FILE`
-	LASTDATE=`echo $LASTSERIAL | sed 's/..$//'`
-	DATE=`date +%Y%m%d`
+	[ -f "$SERIAL_FILE" ] && LASTSERIAL=$(cat "$SERIAL_FILE")
+	LASTDATE=$(echo "$LASTSERIAL" | sed 's/..$//')
+	DATE=$(date +%Y%m%d)
 	if [ "$LASTDATE" = "$DATE" ]; then
 		SERIAL=$(( $LASTSERIAL + 1 ))
-		echo $SERIAL > $SERIAL_FILE
+		echo "$SERIAL" > "$SERIAL_FILE"
  	else
-		SERIAL=`date +%Y%m%d00`
-		echo $SERIAL > $SERIAL_FILE
+		SERIAL=$(date +%Y%m%d00)
+		echo "$SERIAL" > "$SERIAL_FILE"
 	fi
 
 	ZONE_PREPROCESS="sed s/$SERIAL_TAG/$SERIAL/"
-	$ZONE_PREPROCESS $ZONEFILE > $ZONEFILE.tmp
+	$ZONE_PREPROCESS "$ZONEFILE" > "$ZONEFILE.tmp"
 
-	cat $KSK_FILE $ZSK_FILE | while read keyfile
+	cat "$KSK_CUR_FILE" "$ZSK_CUR_FILE" | while read -r keyfile
 	do
 		_check_file "$KEYDIR/$keyfile.key"
-		cat "$KEYDIR/$keyfile.key" >> $ZONEFILE.tmp
+		cat "$KEYDIR/$keyfile.key" >> "$ZONEFILE.tmp"
 	done
-	for i in $KSK_S_FILE $ZSK_S_FILE $ZSK_R_FILE
+	for i in $KSK_NEW_FILE $ZSK_NEW_FILE $ZSK_OLD_FILE
 	do
-		if [ -s $i ]; then
-			keyfile=`head -1 $i`
+		if [ -s "$i" ]; then
+			keyfile=$(head -1 "$i")
 			_check_file "$KEYDIR/$keyfile.key"
-			cat "$KEYDIR/$keyfile.key" >> $ZONEFILE.tmp
+			cat "$KEYDIR/$keyfile.key" >> "$ZONEFILE.tmp"
 		fi
 	done
-	cmdname=`basename $signzone`
 	[ "$KSS" != "" ] && KSS="$KEYDIR/$KSS"
-	$signzone $_SIGN_PARAM -e $EXPIRE -o $ZONE -f "$ZONEFILE.signed" $ZONEFILE.tmp $KEYDIR/$ZSK $KEYDIR/$KSK $KSS
-	echo "signzone returns $?"
-	rm $ZONEFILE.tmp
-	eval $RELOAD_COMMAND
+	$SIGNZONE_CMD "$_SIGN_PARAM" -e "$EXPIRE" -o "$ZONE" -f "$ZONEFILE.signed" "$ZONEFILE.tmp" "$KEYDIR/$ZSK" "$KEYDIR/$KSK" $KSS || Fatal "Failed to sign zone" && $CHECKZONE_CMD $ZONE $ZONE
+	rm "$ZONEFILE.tmp"
+	eval "$RELOAD_CMD"
 }
 
 status()
 {
-	DS_FILE_TMP="$DS_FILE.tmp"
-	if [ -f $KSK_FILE ]; then
-		echo -n "$ZONE's KSK = "
-		cat $KSK_FILE;
-		$key2ds $_DS_PARAM $KEYDIR/`cat $KSK_FILE`.key | tee $DS_FILE_TMP
+	_check_file "$KSK_CUR_FILE" "$ZSK_CUR_FILE"
+	echo $ZONE
+	echo " type state  id    algo hash (digest)"
+	$KEY2DS_CMD -n "$_DS_PARAM" "$KEYDIR/$(cat "$KSK_CUR_FILE").key" | \
+		awk {'printf (" KSK  active %5s %2s   %1s    %s\n", $5, $6, $7, $8)'}
+	if [ -f "$KSK_NEW_FILE" ]; then
+		$KEY2DS_CMD -n "$_DS_PARAM" "$KEYDIR/$(cat "$KSK_NEW_FILE").key" | \
+		  awk {'printf ("      next   %5s %3s  %1s %s\n", $5, $6, $7, $8)'}
 	fi
-	if [ -f $KSK_S_FILE ]; then
-		echo -n "$ZONE's next KSK = "
-		cat $KSK_S_FILE;
-		$key2ds $_DS_PARAM $KEYDIR/`cat $KSK_S_FILE`.key | tee -a $DS_FILE_TMP
+	awk {'split($0,a,"+"); gsub(/^0/, "", a[2]);
+	      printf (" ZSK  active %5s %2s   %1s\n", a[3], a[2], "'$DS_HASH'")'} "$ZSK_CUR_FILE"
+	if [ -f "$ZSK_NEW_FILE" ]; then
+		awk {'split($0,a,"+"); gsub(/^0/, "", a[2]);
+	              printf ("      next   %5s %2s   %1s\n", a[3], a[2], "'$DS_HASH'")'} "$ZSK_NEW_FILE"
 	fi
-	if [ -f $ZSK_FILE ]; then
-		echo -n "$ZONE's ZSK = "
-		cat $ZSK_FILE;
+	if [ -f "$ZSK_OLD_FILE" ]; then
+		awk {'split($0,a,"+"); gsub(/^0/, "", a[2]);
+		      printf ("      old    %5s %2s   %1s\n", a[3], a[2], "'$DS_HASH'")'} "$ZSK_OLD_FILE"
 	fi
-	if [ -f $ZSK_S_FILE ]; then
-		echo -n "$ZONE's next ZSK = "
-		cat $ZSK_S_FILE;
-	fi
-	if [ -f $ZSK_R_FILE ]; then
-		echo -n "$ZONE's previous ZSK = "
-		cat $ZSK_R_FILE;
-	fi
-	mv -f $DS_FILE_TMP $DS_FILE
 }
 
-keygensub()
+keygen()
 {
-	cd $KEYDIR;
-	echo "$keygen $1 $2"
+	cd "$KEYDIR" || Fatal "Can't change directory to \$KEYDIR"
 	newfile="$3"
 	tmpfile="$3.tmp"
-	_KEY=`$keygen $1 $2`
-	[ -f $_KEY.ds ] && rm $_KEY.ds
-	if [ ! -s $_KEY.key ]; then
-		rm $_KEY.key
+	_KEY=$($KEYGEN_CMD $1 "$2") || Fatal "'$KEYGEN_CMD $1 \"$2\"' failed with $?"
+	[ -f "$_KEY.ds" ] && rm "$_KEY.ds"
+	if [ ! -s "$_KEY.key" ]; then
+		rm "$_KEY.key"
 		Fatal "cannot write new key: $1 $2 $3"
 	fi
-	echo $_KEY > $tmpfile
-	read _KEY2 < $tmpfile
+	echo "$_KEY" > "$tmpfile"
+	read -r "_KEY2" < "$tmpfile"
 	if [ "$_KEY" != "$_KEY2" ]; then
-		rm $tmpfile
-		rm $_KEY.key
+		rm "$tmpfile"
+		rm "$_KEY.key"
 		Fatal "cannot write $tmpfile"
 	fi
-	mv $tmpfile $newfile
-	cd $MASTERDIR
+	mv "$tmpfile" "$newfile"
+	cd "$MASTERDIR" || Fatal "Can't change directory to \$MASTERDIR"
 }
 
-removekeys_sub()
+backupkeys()
 {
-	if [ -f $1 ]; then
-		KEY=`head -1 $1`
-		if [ -f $KEYDIR/$KEY.key ]; then
-			mv $KEYDIR/$KEY.key $KEYDIR/$KEY.private $KEYBACKUPDIR/
+	while [ "$1" != "" ]; do
+		if [ -f "$1" ]; then
+			KEY=$(head -1 "$1")
+			if [ -f "$KEYDIR/$KEY.key" ]; then
+				mv "$KEYDIR/$KEY.key" "$KEYDIR/$KEY.private" "$KEYBACKUPDIR/"
+			fi
 		fi
-	fi
+		shift
+	done
 }
 
-remove_previouskey()
-{
-	if [ -f $ZSK_R_FILE ]; then
-		removekeys_sub $ZSK_R_FILE
-		mv $ZSK_R_FILE "$KEYBACKUPDIR/removed-ZSK-$NOW-$ZONE"
-	fi
-}
-
-if [ "$1" = "" -o "$1" = "-h" -o "$1" = "-?" -o "$1" = "--help" ]; then
+# Process command line
+if [ "$1" = "" ] || [ "$1" = "-h" ] || [ "$1" = "-?" ] || [ "$1" = "--help" ]; then
 	_usage
-	exit 0
-elif [ "$1" = "-s" -o "$1" = "--sign" ];then
+elif [ "$1" = "-s" ] || [ "$1" = "--sign" ];then
 	SIGN_OPT=1
-	shift
+	if [ $# -gt 2 ]; then
+		shift
+	fi
 fi
 
 CMD="$1"
@@ -243,108 +246,119 @@ fi
 
 for ZONE in $ZONELIST
 do
-	LOCKF="$DBDIR/$ZONE.lock"
 	TMPF="$DBDIR/$ZONE.$$"
-	OUTF="$ZONE.signed"
-	KSK_FILE="$KEYDIR/$HEAD_KSKNAME$ZONE"
-	ZSK_FILE="$KEYDIR/$HEAD_ZSKNAME$ZONE"
-	KSK_S_FILE="$KEYDIR/$HEAD_KSSNAME$ZONE"
-	ZSK_S_FILE="$KEYDIR/$HEAD_ZSSNAME$ZONE"
-	ZSK_R_FILE="$KEYDIR/$HEAD_ZSRNAME$ZONE"
+	KSK_CUR_FILE="$KEYDIR/$KSK_CUR_PREFIX$ZONE"
+	ZSK_CUR_FILE="$KEYDIR/$ZSK_CUR_PREFIX$ZONE"
+	KSK_NEW_FILE="$KEYDIR/$KSK_NEW_PREFIX$ZONE"
+	ZSK_NEW_FILE="$KEYDIR/$ZSK_NEW_PREFIX$ZONE"
+	ZSK_OLD_FILE="$KEYDIR/$ZSK_OLD_PREFIX$ZONE"
 	SERIAL_FILE="$SERIALDIR/$ZONE"
-	DS_FILE="$DSDIR/$ZONE"
 	ZONEFILE="$MASTERDIR/$ZONE"
-	ZONE_=`echo $ZONE | tr .- __`
-	eval _SIGN_PARAM=\${SIGN_PARAM_$ZONE_:-$SIGN_PARAM}
-	eval _KSK_PARAM=\${KSK_PARAM_$ZONE_:-$KSK_PARAM}
-	eval _ZSK_PARAM=\${ZSK_PARAM_$ZONE_:-$ZSK_PARAM}
-	eval _DS_PARAM=\${DS_PARAM_$ZONE_:-$DS_PARAM}
+	ZONE_=$(echo "$ZONE" | tr .- __)
+	eval _SIGN_PARAM=\${SIGN_PARAM_"$ZONE_":-"$SIGN_PARAM"}
+	eval _KSK_PARAM=\${KSK_PARAM_"$ZONE_":-"$KSK_PARAM"}
+	eval _ZSK_PARAM=\${ZSK_PARAM_"$ZONE_":-"$ZSK_PARAM"}
+	eval _DS_PARAM=\${DS_PARAM_"$ZONE_":-"$DS_PARAM"}
 
-	echo "LOCK$$" > $TMPF
-	LOCKSTR=`cat $TMPF`
-	if [ ! -f $TMPF -o "LOCK$$" != "$LOCKSTR" ]; then
-		Fatal "cannot write lock file $TMPF"
+	if [ ! -s "$KSK_CUR_FILE" ]; then
+		Fatal "Zone does not exist"
 	fi
-	if ln $TMPF $LOCKF; then
+
+        LOCKF="$DBDIR/$ZONE.lock"
+	echo "LOCK$$" > "$TMPF"
+	LOCKSTR=$(cat "$TMPF")
+	if [ ! -f "$TMPF" ] || [ "LOCK$$" != "$LOCKSTR" ]; then
+		Fatal "Cannot write lock file $TMPF"
+	fi
+	if ln "$TMPF" "$LOCKF"; then
 		:
 	else
-		rm $TMPF
+		rm "$TMPF"
 		echo "zone $ZONE locked"
 		continue
 	fi
-	rm $TMPF
+	rm "$TMPF"
+
 	case $CMD in
 	keygen)
-		_check_nofile $KSK_FILE $ZSK_FILE
-		keygensub "$_KSK_PARAM" $ZONE $KSK_FILE
-		keygensub "$_ZSK_PARAM" $ZONE $ZSK_FILE
+		_check_nofile "$KSK_CUR_FILE" "$ZSK_CUR_FILE"
+		keygen "$_KSK_PARAM" "$ZONE" "$KSK_CUR_FILE"
+		keygen "$_ZSK_PARAM" "$ZONE" "$ZSK_CUR_FILE"
+		echo "New keys created"
 		status
 		;;
 	rmkeys)
-		removekeys_sub $KSK_FILE
-		removekeys_sub $ZSK_FILE
-		removekeys_sub $KSK_S_FILE
-		removekeys_sub $ZSK_S_FILE
-		rm $KSK_FILE $ZSK_FILE $KSK_S_FILE $ZSK_S_FILE
+
+		backupkeys "$KSK_CUR_FILE" "$ZSK_CUR_FILE" "$KSK_NEW_FILE" "$ZSK_NEW_FILE"
+		rm "$KSK_CUR_FILE" "$ZSK_CUR_FILE" "$KSK_NEW_FILE" "$ZSK_NEW_FILE"
+		echo "Removed all keys"
 		status
 		;;
 	ksk-add)
-		_check_nofile $KSK_S_FILE
-		keygensub "$_KSK_PARAM" $ZONE $KSK_S_FILE
+		_check_nofile "$KSK_NEW_FILE"
+		keygen "$_KSK_PARAM" "$ZONE" "$KSK_NEW_FILE"
+		echo "Added new KSK"
 		status
 		;;
 	ksk-roll)
-		_check_file $ZONEFILE $KSK_FILE $KSK_S_FILE
-		KSK=`head -1 $KSK_FILE`
-		KSS=`head -1 $KSK_S_FILE`
-		_check_file $KEYDIR/$KSK.key $KEYDIR/$KSS.key $KEYDIR/$KSK.private $KEYDIR/$KSS.private
-		mv $KEYDIR/$KSK.key $KEYDIR/$KSK.private $KEYBACKUPDIR/
-		mv $KSK_S_FILE $KSK_FILE
+		_check_file "$ZONEFILE" "$KSK_CUR_FILE" "$KSK_NEW_FILE"
+		KSK=$(head -1 "$KSK_CUR_FILE")
+		KSS=$(head -1 "$KSK_NEW_FILE")
+		_check_file "$KEYDIR/$KSK.key" "$KEYDIR/$KSS.key" "$KEYDIR/$KSK.private" "$KEYDIR/$KSS.private"
+		mv "$KEYDIR/$KSK.key" "$KEYDIR/$KSK.private" "$KEYBACKUPDIR/"
+		mv "$KSK_NEW_FILE" "$KSK_CUR_FILE"
 		OLDKSK="$KSK"
 		KSK="$KSS"
 		KSS=""
-		echo "$ZONE 's KSK: valid -> removed: $OLDKSK"
-		echo "$ZONE 's KSK: next  -> current: $KSK"
+		echo "Removed old KSK"
 		status
 		;;
 	zsk-add)
-		_check_nofile $ZSK_S_FILE
-		keygensub "$_ZSK_PARAM" $ZONE $ZSK_S_FILE
+		_check_nofile "$ZSK_NEW_FILE"
+		keygen "$_ZSK_PARAM" "$ZONE" "$ZSK_NEW_FILE"
+		echo "New ZSK created"
 		status
 		;;
 	zsk-roll)
-		_check_file $ZONEFILE $ZSK_FILE $ZSK_S_FILE
-		ZSK=`head -1 $ZSK_FILE`
-		ZSS=`head -1 $ZSK_S_FILE`
-		_check_file $KEYDIR/$ZSK.key $KEYDIR/$ZSS.key $KEYDIR/$ZSK.private $KEYDIR/$ZSS.private
-		remove_previouskey
-		mv $ZSK_FILE $ZSK_R_FILE
-		mv $ZSK_S_FILE $ZSK_FILE
+		_check_file "$ZONEFILE" "$ZSK_CUR_FILE" "$ZSK_NEW_FILE"
+		ZSK=$(head -1 "$ZSK_CUR_FILE")
+		ZSS=$(head -1 "$ZSK_NEW_FILE")
+		_check_file "$KEYDIR/$ZSK.key" "$KEYDIR/$ZSS.key" "$KEYDIR/$ZSK.private" "$KEYDIR/$ZSS.private"
+		backupkeys "$ZSK_OLD_FILE"
+		mv "$ZSK_OLD_FILE" "$KEYBACKUPDIR/removed-ZSK-$NOW-$ZONE"
+		mv "$ZSK_CUR_FILE" "$ZSK_OLD_FILE"
+		mv "$ZSK_NEW_FILE" "$ZSK_CUR_FILE"
 		OLDZSK="$ZSK"
 		ZSK="$ZSS"
 		ZSS=""
-		echo "$ZONE 's ZSK: valid -> previous: $OLDZSK"
-		echo "$ZONE 's ZSK: next -> current: $ZSK"
+		echo "Rolled ZSK - active set to old & new set to active"
 		status
 		;;
 	zsk-rmold)
-		_check_file $ZSK_R_FILE
-		remove_previouskey
+		_check_file "$ZSK_OLD_FILE"
+		backupkeys "$ZSK_OLD_FILE"
+		mv "$ZSK_OLD_FILE" "$KEYBACKUPDIR/removed-ZSK-$NOW-$ZONE"
+		echo "Removed old ZSK"
 		status
-		;;
-	sign)
-		sign
 		;;
 	status)
 		status
+		;;
+	sign|-s|--sign)
+		sign
+		SIGN_OPT=0
 		;;
 	*)
 		echo "unknown command: $CMD"
 		_usage
 		;;
 	esac
-	rm $LOCKF
+
+	if [ "$SIGN_OPT" = 1 ]; then
+		sleep 5
+		sign
+	fi
+	rm "$LOCKF"
 done
 
-[ "$SIGN_OPT" = 1 ] && sign
 exit 0
