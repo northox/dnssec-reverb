@@ -30,12 +30,12 @@ Reverb is straightforward and couldn't be more trustable/easy to audit. Enjoy!
     echo ZSK_PARAM_example.org="-a RSASHA1-NSEC3-SHA1" >> /etc/dnssec-reverb.conf
     ```
 
-3. Prepare the traditional zone files and set the serial to this special tag: `_SERIAL_`. The file name should be equal to the zone name.
+3. Prepare the traditional zone files and set the serial to this special tag: `00001111`. We use a number to keep named checkzone compatibility. The file name should be equal to the zone name.
 
     ```
     $ grep serial example.org
     @ IN SOA ns1.example.org. dnsmaster.example.org. (
-    _SERIAL_   ; serial
+    00001111   ; serial
     1h         ; refresh (1 hours)
     1h         ; retry (1 hour)
     5w         ; expire (4 weeks)
