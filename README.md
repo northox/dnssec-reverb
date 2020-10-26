@@ -5,6 +5,9 @@ I was looking for something that would take care of the rotation of my DNSSEC ke
 
 Reverb is straightforward and couldn't be more trustable/easy to audit. Enjoy!
 
+# Release notes
+* **CAUTION** the latest release changed the serial special tag from '\_SERIAL_' to '00001111' to ensure named/nsd compatibility. Update your master zone.
+
 ## Features
 * Supports nsd and bind servers
 * Supports ldns and bind's dnssec tools
@@ -122,11 +125,11 @@ usage: dnssec-reverb keygen <zone>
 
    ```
    # dnssec-reverb status example.org
-   example.org
-    type state  id    algo hash (digest)
-    KSK  active 27288 13   2    4b80b5003008cb032c31748e8b4ea139627dd75359f1bba415ae6695b5b47b26
-    ZSK  active 02272 13   2
-         next   06178 13   2
+   example.org -- https://dnsviz.net/d/example.org/dnssec/
+     type state  id    algo hash (expiration)        (digest)
+     KSK  active 60742 13    2   set w/ registrar    53cf303e75669063c34e1f4a75bfffbbad45bd202d24f3899ccb7cf9a8b502b6
+     ZSK  active 06178 13    2   2020/11/28 04:32:05
+          next   43617 13    2   2020/11/28 04:32:05
    ```
 
 3. After allowing some time for propagation, roll our the new KSK and remove the old one.
