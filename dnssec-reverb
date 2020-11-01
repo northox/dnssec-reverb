@@ -168,8 +168,6 @@ sign()
 status()
 {
 	_check_file "$KSK_CUR_FILE" "$ZSK_CUR_FILE"
-	ZSK=$(head -1 "$ZSK_CUR_FILE")
-	ZSS=$(head -1 "$ZSK_NEW_FILE")
 	printf "$ZONE -- https://dnsviz.net/d/$ZONE/dnssec/\n"
 	printf " type state  id    algo hash (expiration)        (digest)\n"
 	$KEY2DS_CMD -n "$_DS_PARAM" "$KEYDIR/$(cat "$KSK_CUR_FILE").key" | \
@@ -178,20 +176,23 @@ status()
 		$KEY2DS_CMD -n "$_DS_PARAM" "$KEYDIR/$(cat "$KSK_NEW_FILE").key" | \
 		  awk '{printf ("      next   %5s %2s   %2s   (set w/ registrar)  %s\n", $5, $6, $7, $8)}'
 	fi
+	ZSK=$(head -1 "$ZSK_CUR_FILE")
 	awk '{ getline line <"'$KEYDIR'/'$ZSK'.expire"
 	       split($0,a,"+")
 	       gsub(/^0/, "", a[2])
 	       printf (" ZSK  active %5s %2s   %2s   %19s\n", a[3], a[2], "'$DS_HASH'", line)
              }' "$ZSK_CUR_FILE"
 	if [ -f "$ZSK_NEW_FILE" ]; then
-		awk '{ getline line <"'$KEYDIR'/'$ZSK'.expire"
+		ZSS=$(head -1 "$ZSK_NEW_FILE")
+		awk '{ getline line <"'$KEYDIR'/'$ZSS'.expire"
 		       split($0,a,"+")
 		       gsub(/^0/, "", a[2]);
 	               printf ("      next   %5s %2s   %2s   %19s\n", a[3], a[2], "'$DS_HASH'", line)
 	             }' "$ZSK_NEW_FILE"
 	fi
 	if [ -f "$ZSK_OLD_FILE" ]; then
-		awk '{ getline line <"'$KEYDIR'/'$ZSK'.expire"
+		ZSR=$(head -1 "$ZSK_OLD_FILE")
+		awk '{ getline line <"'$KEYDIR'/'$ZSR'.expire"
 		       split($0,a,"+")
 		       gsub(/^0/, "", a[2])
 		       printf ("      old    %5s %2s   %2s   %19s\n", a[3], a[2], "'$DS_HASH'", line)
