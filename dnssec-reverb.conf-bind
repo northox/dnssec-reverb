@@ -1,7 +1,7 @@
 keygen="$(which dnssec-keygen)"
 signzone="$(which dnssec-signzone)"
 key2ds="$(which dnssec-dsfromkey)"
-checkzone="$(which named-checkzone")
+checkzone="$(which named-checkzone)"
 control="$(which rndc)"
  
 KSK_PARAM="-n zone -a ECDSAP256SHA256 -f ksk"
