@@ -19,7 +19,7 @@ KSK_PARAM="-a ECDSAP256SHA256 -k"
 ZSK_PARAM="-a ECDSAP256SHA256"
 SIGN_PARAM="-n" # -n = use NSEC3
 DS_HASH="2" # 1=SHA1 2=SHA256 3=GOST 4=SHA384
-DS_PARAM="-$DS_HASH"
+DS_PARAM="-n -$DS_HASH"
 EXPIRE_DAYS="33"
 SERIAL_TAG="00001111"
 
@@ -55,11 +55,11 @@ fi
 . "$CONF"
 
 # defaults
-[ "$KEYGEN_CMD" = "" ] && Fatal "cannot find \$KEYZONE_CMD"
-[ "$SIGNZONE_CMD" = "" ] && Fatal "cannot find \$SIGNZONE_CMD"
-[ "$KEY2DS_CMD" = "" ] && Fatal "cannot find \$KEY2DS_CMD"
-[ "$CHECKZONE_CMD" = "" ] && Fatal "cannot find \$CHECKZONE_CMD"
-[ "$CONTROL_CMD" = "" ] && Fatal "cannot find \$CONTROL_CMD"
+[ "$KEYGEN_CMD" = "" ] && Fatal "cannot find \$KEYGEN_CMD ($KEYGEN_CMD)"
+[ "$SIGNZONE_CMD" = "" ] && Fatal "cannot find \$SIGNZONE_CMD ($SIGNZONE_CMD)"
+[ "$KEY2DS_CMD" = "" ] && Fatal "cannot find \$KEY2DS_CMD ($KEY2DS_CMD)"
+[ "$CHECKZONE_CMD" = "" ] && Fatal "cannot find \$CHECKZONE_CMD ($CHECKZONE_CMD)"
+[ "$CONTROL_CMD" = "" ] && Fatal "cannot find \$CONTROL_CMD ($CONTROL_CMD)"
 [ "$MASTERDIR" = "" ] && Fatal "\$MASTERDIR not set"
 [ -d "$MASTERDIR" ] || Fatal "\$MASTERDIR not a directory ($MASTERDIR)"
 [ "$DBDIR" = "" ] && DBDIR="$MASTERDIR/dnssec-reverb-db"
@@ -170,7 +170,7 @@ status()
 	_check_file "$KSK_CUR_FILE" "$ZSK_CUR_FILE"
 	printf "$ZONE -- https://dnsviz.net/d/$ZONE/dnssec/\n"
 	printf " type state  id    algo hash (expiration)        (digest)\n"
-	$KEY2DS_CMD -n "$_DS_PARAM" "$KEYDIR/$(cat "$KSK_CUR_FILE").key" | \
+	$KEY2DS_CMD "$_DS_PARAM" "$KEYDIR/$(cat "$KSK_CUR_FILE").key" | \
 		awk '{printf (" KSK  active %5s %2s   %2s   set w/ registrar    %s\n", $5, $6, $7, $8)}'
 	if [ -f "$KSK_NEW_FILE" ]; then
 		$KEY2DS_CMD -n "$_DS_PARAM" "$KEYDIR/$(cat "$KSK_NEW_FILE").key" | \
@@ -270,7 +270,7 @@ do
 	eval _ZSK_PARAM=\${ZSK_PARAM_"$ZONE_":-"$ZSK_PARAM"}
 	eval _DS_PARAM=\${DS_PARAM_"$ZONE_":-"$DS_PARAM"}
 
-	if [ ! -s "$KSK_CUR_FILE" ]; then
+	if [ ! -s "$KSK_CUR_FILE" ] && [ $CMD != "keygen" ]; then
 		Fatal "zone does not exist"
 	fi
 
