@@ -19,7 +19,7 @@ KSK_PARAM="-a ECDSAP256SHA256 -k"
 ZSK_PARAM="-a ECDSAP256SHA256"
 SIGN_PARAM="-n" # -n = use NSEC3
 DS_HASH="2" # 1=SHA1 2=SHA256 3=GOST 4=SHA384
-DS_PARAM="-n -$DS_HASH"
+DS_PARAM="-$DS_HASH"
 EXPIRE_DAYS="33"
 SERIAL_TAG="00001111"
 
@@ -170,10 +170,10 @@ status()
 	_check_file "$KSK_CUR_FILE" "$ZSK_CUR_FILE"
 	printf "$ZONE -- https://dnsviz.net/d/$ZONE/dnssec/\n"
 	printf " type state  id    algo hash (expiration)        (digest)\n"
-	$KEY2DS_CMD "$_DS_PARAM" "$KEYDIR/$(cat "$KSK_CUR_FILE").key" | \
+	$KEY2DS_CMD -n $_DS_PARAM "$KEYDIR/$(cat "$KSK_CUR_FILE").key" | \
 		awk '{printf (" KSK  active %5s %2s   %2s   set w/ registrar    %s\n", $5, $6, $7, $8)}'
 	if [ -f "$KSK_NEW_FILE" ]; then
-		$KEY2DS_CMD -n "$_DS_PARAM" "$KEYDIR/$(cat "$KSK_NEW_FILE").key" | \
+		$KEY2DS_CMD -n $_DS_PARAM "$KEYDIR/$(cat "$KSK_NEW_FILE").key" | \
 		  awk '{printf ("      next   %5s %2s   %2s   (set w/ registrar)  %s\n", $5, $6, $7, $8)}'
 	fi
 	ZSK=$(head -1 "$ZSK_CUR_FILE")
