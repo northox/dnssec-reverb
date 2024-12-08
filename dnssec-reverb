@@ -171,7 +171,7 @@ sign()
 	else
 		EXPIRE=$EXPIRE_ABS
 	fi
-	$SIGNZONE_CMD $_SIGN_PARAM -e "$EXP" -o "$ZONE" -f "$ZONEFILE.signed" "$ZONEFILE.tmp" "$KEYDIR/$ZSK" "$KEYDIR/$KSK" $KSS || Fatal "failed to sign zone" && $CHECKZONE_CMD $ZONE $ZONE
+	$SIGNZONE_CMD $_SIGN_PARAM -e "$EXPIRE" -o "$ZONE" -f "$ZONEFILE.signed" "$ZONEFILE.tmp" "$KEYDIR/$ZSK" "$KEYDIR/$KSK" $KSS || Fatal "failed to sign zone" && $CHECKZONE_CMD $ZONE $ZONE
 	TT=$EXPIRE
 	if [ "$OS_TYPE" = "Linux" ]; then
 		date -d "@$TT" '+%Y/%m/%d %H:%M:%S' > "$KEYDIR/$ZSK.expire"
