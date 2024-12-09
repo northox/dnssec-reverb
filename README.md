@@ -80,10 +80,11 @@ Params - default value:
 * KSK_PARAM: keygen's options for KSK | '-a ECDSAP256SHA256 -k'
 * ZSK_PARAM: keygen's options for ZSK | '-a ECDSAP256SHA256'
 * SIGN_PARAM: signzone options | '-n' (NSEC3)
-* DS_PARAM: key2ds or dsfromkey options | '-2' (SHA256)
+* DS_HASH: 1=SHA1 2=SHA256 3=GOST 4=SHA384 | '2' (SHA256)
+* DS_PARAM: key2ds or dsfromkey options | '-n -$DS_HASH'
 
 Signatures expiration:
-* EXPIRE_DAYS: used to calculate the expiration date of the signatures to this date. Defaults to 33.
+* EXPIRE_DAYS: used to calculate the expiration date of the signatures to this date. Defaults to 36.
 
 The previous configuration set can be overridden by zone by simply adding "\_$zone" at the end of the variable. For example: ZSK_PARAM_example.org="-a RSASHA1-NSEC3-SHA1" to change the cipher for example.org's keys only. All zone name must be lowercase. Zone whose name contains '.' and '-' characters are replaced by '_'.
 
