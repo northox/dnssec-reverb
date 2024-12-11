@@ -77,9 +77,9 @@ Paths | default value:
 * RELOAD_COMMAND: reload command | (echo -n 'reload is '; $control reload) && (echo -n 'notify is '; $control notify)
 
 Params - default value:
-* KSK_PARAM: keygen's options for KSK | '-a ECDSAP256SHA256 -k'
-* ZSK_PARAM: keygen's options for ZSK | '-a ECDSAP256SHA256'
-* SIGN_PARAM: signzone options | '-n' (NSEC3)
+* KSK_PARAM: keygen's options for KSK | '-a ED25519 -k'
+* ZSK_PARAM: keygen's options for ZSK | '-a ED25519'
+* SIGN_PARAM: signzone options | ''
 * DS_HASH: 1=SHA1 2=SHA256 3=GOST 4=SHA384 | '2' (SHA256)
 * DS_PARAM: key2ds or dsfromkey options | '-n -$DS_HASH'
 
