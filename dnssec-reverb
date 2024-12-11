@@ -317,7 +317,7 @@ do
 	rmkeys)
 
 		backupkeys "$KSK_CUR_FILE" "$ZSK_CUR_FILE" "$KSK_NEW_FILE" "$ZSK_NEW_FILE"
-		rm "$KSK_CUR_FILE" "$ZSK_CUR_FILE" "$KSK_NEW_FILE" "$ZSK_NEW_FILE"
+		rm -f "$KSK_CUR_FILE" "$ZSK_CUR_FILE" "$KSK_NEW_FILE" "$ZSK_NEW_FILE"
 		echo "All keys removed"
 		status
 		;;
