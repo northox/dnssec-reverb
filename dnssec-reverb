@@ -57,7 +57,7 @@ fi
 
 # defaults
 DNS_TOOL=${DNS_TOOL:-nsd}
-[ "$KEYGEN_CMD" = "" ] && Fatal "cannot find \$KEYZONE_CMD"
+[ "$KEYGEN_CMD" = "" ] && Fatal "cannot find \$KEYGEN_CMD"
 [ "$SIGNZONE_CMD" = "" ] && Fatal "cannot find \$SIGNZONE_CMD"
 [ "$KEY2DS_CMD" = "" ] && Fatal "cannot find \$KEY2DS_CMD"
 [ "$CHECKZONE_CMD" = "" ] && Fatal "cannot find \$CHECKZONE_CMD"
