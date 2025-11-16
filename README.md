@@ -141,8 +141,8 @@ usage: dnssec-reverb keygen <zone>
 1. Set something similar in your crontab. It will automatically add a new KSK and - assuming your email are setup correctly - send an email when you need to take action with your registrar. Optionally, you could replace the later with a script calling your registrar API to complete the rollover automagically.
 
 ```
-0	0	1	dec		*   dessec-reverb ksk-add example.org
-0	0	1	jan		*   dessec-reverb ksk-roll example.org
+0	0	1	dec		*   dnssec-reverb ksk-add example.org
+0	0	1	jan		*   dnssec-reverb ksk-roll example.org
 ```
 
 ## Rollover of the ZSK

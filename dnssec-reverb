@@ -288,7 +288,7 @@ do
 	eval _DS_PARAM=\${DS_PARAM_"$ZONE_":-"$DS_PARAM"}
 
 	if [ ! -s "$KSK_CUR_FILE" ] && [ $CMD != "keygen" ]; then
-		Fatal "zone does not exist"
+		Fatal "zone does not exist (Have you ran keygen?)"
 	fi
 
         LOCKF="$DBDIR/$ZONE.lock"
